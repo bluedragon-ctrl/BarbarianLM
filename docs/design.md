@@ -361,7 +361,7 @@ Policy gradient on his own trips, as in Karkulka. Judges:
 
 - **Gold out** (the main one): his score. Pays gold ÷ 50 on the last turn, if he left (a good raid scores about 0.9).
 - **Gold picked up**: reward hacking. Pays gold ÷ 50 at each pickup, kept or not. He learns to hoard and run out of time.
-- **Monsters beaten**: the wrong measure. Pays 0.2 for each monster he beats. He learns to pick fights.
+- **Monsters beaten**: the wrong measure. Pays 0.05 per point of the beaten monster's full HP, so tougher ones pay more: rat 0.1, goblin 0.2, slime 0.3, troll 0.6. He should learn to pick fights.
 
 **How practice runs** (`src/train.ts`, step 6; numbers *(tune)*):
 
@@ -377,17 +377,17 @@ Policy gradient on his own trips, as in Karkulka. Judges:
 | BCDEFG, before practice | 8.6 | 29% | 48% | 23% | 35.5 | 4.4 |
 | … gold out | **22.0** | 77% | 15% | 8% | 27.5 | 3.9 |
 | … gold picked up | 8.9 | 26% | 34% | **40%** | **39.1** | 4.5 |
-| … monsters beaten | 10.0 | 30% | 32% | 38% | 39.1 | 4.5 |
+| … monsters beaten | 7.0 | 21% | 32% | 47% | 39.3 | 4.6 |
 | QWERTY, before practice | 22.9 | 82% | 6% | 12% | 28.2 | 5.4 |
 | … gold out | **33.2** | 88% | 10% | 2% | 36.0 | 5.8 |
 | … gold picked up | 32.7 | 88% | 8% | 4% | 35.7 | 5.8 |
-| … monsters beaten | 27.9 | 83% | 7% | 10% | 32.8 | 5.8 |
+| … monsters beaten | 28.9 | 84% | 2% | 14% | 33.4 | 5.8 |
 | 200 new codes, before | 6.0 | 48% | 26% | 17% | 17.1 | 2.4 |
 | … gold out | 5.9 | 44% | 36% | 13% | 20.6 | 2.7 |
 | … gold picked up | 0.5 | 11% | 22% | **65%** | 12.6 | 1.9 |
-| … monsters beaten | 0.1 | 3% | 17% | **78%** | 6.8 | 1.3 |
+| … monsters beaten | 0.2 | 7% | 26% | **63%** | 10.1 | 1.7 |
 
-In one dungeon the gold-out judge does what fine-tuning should: in BCDEFG gold out goes from 8.6 to 22 and leaving from 29% to 77%. The gold-picked-up judge picks up more and is locked in nearly twice as often, but carries out no more. Where the healer already leaves with most of the gold (QWERTY) it changes little. Over many new dungeons, 3,000 raids are not enough for gold out to rise. There the two bad judges break him: he stands about wasting turns (59 and 94 wasted actions a raid) until he is locked in. Monsters beaten barely picks more fights (4.4 to 4.5 in BCDEFG; 4.8 with a reward of 0.5 a monster).
+In one dungeon the gold-out judge does what fine-tuning should: in BCDEFG gold out goes from 8.6 to 22 and leaving from 29% to 77%. The gold-picked-up judge picks up more and is locked in nearly twice as often, but carries out no more. Where the healer already leaves with most of the gold (QWERTY) it changes little. Over many new dungeons, 3,000 raids are not enough for gold out to rise. There the two bad judges break him: he stands about wasting turns (59 and 67 wasted actions a raid) until he is locked in. Monsters beaten barely picks more fights: 4.4 to 4.6 in BCDEFG. A flat 0.2 a monster gave 4.5, and 0.1 per HP gave 4.7.
 
 ### Tests
 
@@ -487,5 +487,5 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
 - **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out about 40; 9–28 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
 - Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
-- The monsters-beaten judge hardly picks more fights: beating a monster costs HP and the gold is the same either way. A bigger reward (0.5) helped only a little. Perhaps pay more for tougher monsters, or count monsters struck rather than beaten.
+- The monsters-beaten judge hardly picks more fights, even now that tougher monsters pay more (tuned in step 6, from a flat 0.2). After the healer's lessons he already beats most monsters he can, and the rest (slimes, trolls) knock him out first. He mostly loses the way home instead. Perhaps practise from the warrior's lessons, or pay per blow struck.
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,033 parameters. The UI may need to suggest more lessons for the long memory.

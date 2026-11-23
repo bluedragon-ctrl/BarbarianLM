@@ -8,6 +8,7 @@ import { adamStep, clearGrads, createAdam, imitationGrad, policyGrad, sgdStep, z
 import { Raid, memoryPairs, type RaidRecord } from './raid';
 import { codesFrom, countRaid, manyRaids, newCounts, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
 import { mulberry32, randomCode, shuffle, type Rng } from './rng';
+import { MONSTER_STATS, type MonsterKind } from './tiles';
 import { TEACHERS, teacherRaid, type TeacherName } from './teachers';
 import { encode, newMemory, remember } from './tokens';
 import { view, type Action, type RaidState } from './world';
@@ -20,8 +21,8 @@ export const LOOP = {
   practiceTemperature: 1,
   /** Gold is divided by this to make a reward: a good raid (about 45 gold) scores about 0.9. */
   goldScale: 50,
-  /** The monsters-beaten judge's reward per monster. */
-  beatenReward: 0.2,
+  /** The monsters-beaten judge's reward per point of the beaten monster's full HP: tougher monsters pay more. */
+  beatenRewardPerHp: 0.05,
   /** The baseline follows the raid scores, this share of the way each raid. */
   baselineSmoothing: 0.05,
   /** The advantage (reward to go minus the baseline) is clipped to ±this. */
@@ -48,14 +49,17 @@ export const JUDGE_LABELS: Record<Judge, string> = {
   monstersBeaten: 'Monsters beaten',
 };
 
+/** What the monsters-beaten judge pays for one monster: rat 0.1, goblin 0.2, slime 0.3, troll 0.6. */
+export const beatenReward = (kind: MonsterKind): number => LOOP.beatenRewardPerHp * MONSTER_STATS[kind].hp;
+
 /**
  * The judge's reward for each turn of a raid. Gold out pays on the last turn, and only if he left; gold picked up
- * pays at each pickup, kept or not; monsters beaten pays at each monster he beats.
+ * pays at each pickup, kept or not; monsters beaten pays at each monster he beats, more for tougher ones.
  */
 export function judgeRewards(judge: Judge, r: Pick<RaidRecord, 'state' | 'turns'>): number[] {
   const out = r.turns.map(({ result: x }) => {
     if (judge === 'goldPickedUp') return x.goldGained / LOOP.goldScale;
-    if (judge === 'monstersBeaten') return x.beaten ? LOOP.beatenReward : 0;
+    if (judge === 'monstersBeaten') return x.beaten ? beatenReward(x.beaten.monster.kind) : 0;
     return 0;
   });
   if (judge === 'goldOut' && out.length && r.state.ended === 'left') out[out.length - 1] = r.state.gold / LOOP.goldScale;

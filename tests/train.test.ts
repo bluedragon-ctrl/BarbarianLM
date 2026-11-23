@@ -7,7 +7,7 @@ import { mulberry32 } from '../src/rng';
 import { teacherRaid } from '../src/teachers';
 import { MEMORY_SIZES, encode, inputSize, newMemory, remember } from '../src/tokens';
 import {
-  LOOP, advantage, judgeRewards, learnFromRaid, lessonExamples, lessonLoss, newStats, rewardToGo, updateBaseline,
+  LOOP, advantage, beatenReward, judgeRewards, learnFromRaid, lessonExamples, lessonLoss, newStats, rewardToGo, updateBaseline,
   runJob, trainLessons, trainPractice, type WorkerResponse,
 } from '../src/train';
 import {
@@ -159,7 +159,8 @@ describe('the judges, the baseline and the advantage', () => {
 
   it('gold picked up pays at the pickup, monsters beaten at the blow', () => {
     expect(judgeRewards('goldPickedUp', r)).toEqual([0, 10 / LOOP.goldScale, 0, 0]);
-    expect(judgeRewards('monstersBeaten', r)).toEqual([0, 0, LOOP.beatenReward, 0]);
+    expect(judgeRewards('monstersBeaten', r)).toEqual([0, 0, beatenReward('rat'), 0]);
+    expect(['rat', 'goblin', 'slime', 'troll'].map((k) => beatenReward(k as 'rat'))).toEqual([0.1, 0.2, 0.30000000000000004, 0.6000000000000001]);
   });
 
   it('credits each turn with its reward to go, minus the baseline, clipped to ±1', () => {
