@@ -8,7 +8,7 @@
  * Options: --memory short|medium|long (only that size), --teachers a,b (only those), --skip-lessons,
  * --skip-practice, --temperature T (test raids' boldness, default the training tests'), --dungeon CODE (all in one
  * dungeon), --practice-from NAME (the teacher whose lessons practice starts from, default the healer),
- * --training '{json}' and --loop '{json}' (other training numbers).
+ * --judges a,b (only those), --training '{json}' and --loop '{json}' (other training numbers).
  */
 import { createModel, type Model } from '../src/model';
 import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
@@ -74,7 +74,8 @@ export function main(args: string[]) {
     trainLessons(base, createAdam(base), from, lessons, newStats(), mulberry32(1), { test: false, dungeon });
     console.log(`${`practice (${from}'s lessons, medium)`.padEnd(41)}  ${HEAD}`);
     console.log(`${'before'.padEnd(40)}  ${line(test(base))}`);
-    for (const judge of JUDGES) {
+    const judges = (opt(args, '--judges')?.split(',') ?? JUDGES) as typeof JUDGES[number][];
+    for (const judge of judges) {
       const m = clone(base);
       const stats = newStats();
       const marks = [practice / 4, practice / 2, practice].map(Math.round);

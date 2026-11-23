@@ -275,11 +275,6 @@ export interface TeacherRules {
    */
   avoidMonsters: boolean;
   /**
-   * Steps away from a rat or goblin next to him instead of striking back, if there is a free tile out of its reach
-   * (chasers give up after a few steps); fights only when cornered. The thief.
-   */
-  slipAway: boolean;
-  /**
    * Monsters' gold counts as gold to go for: never, always, or once he has taken a strength and a vigour (the
    * champion gets stronger first).
    */
@@ -305,19 +300,19 @@ export interface TeacherRules {
 }
 
 const HEALER: TeacherRules = {
-  hpWeight: 2, dig: 'never', fightSpare: 1 / 3, fightPotions: 'never', avoidMonsters: false, slipAway: false, huntMonsters: 'never',
+  hpWeight: 2, dig: 'never', fightSpare: 1 / 3, fightPotions: 'never', avoidMonsters: false, huntMonsters: 'never',
   itemBonus: 0, buffBonus: 0, drink: 'belowHalf', torchReveal: 5, torchKeep: 0, timeMargin: 20, homeHp: 1 / 2,
   waits: true, trollBait: false,
 };
 const WARRIOR: TeacherRules = {
-  hpWeight: 1, dig: 'never', fightSpare: null, fightPotions: 'always', avoidMonsters: false, slipAway: false, huntMonsters: 'always',
+  hpWeight: 1, dig: 'never', fightSpare: null, fightPotions: 'always', avoidMonsters: false, huntMonsters: 'always',
   itemBonus: 0, buffBonus: 10, drink: 'nextHit', torchReveal: 5, torchKeep: 0, timeMargin: 5, homeHp: 1 / 4,
   waits: false, trollBait: false,
 };
 export const TEACHER_RULES: Record<TeacherName, TeacherRules> = {
   warrior: WARRIOR,
   healer: HEALER,
-  thief: { ...HEALER, hpWeight: 10, avoidMonsters: true, slipAway: true, torchReveal: 2, itemBonus: 10, buffBonus: 10 },
+  thief: { ...HEALER, hpWeight: 10, avoidMonsters: true, torchReveal: 2, itemBonus: 10, buffBonus: 10 },
   dwarf: { ...HEALER, dig: 'real' },
   pickaxe: { ...HEALER, dig: 'pickaxe' },
   goblin: { ...WARRIOR, trollBait: true },
@@ -424,11 +419,7 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
     // if it is better than staying. (A mobile one he will not fight is left to the plan: any step away from it
     // means it has to step after him, and then it does not hit that turn.)
     const mobile = (m: KnownMonster) => MONSTER_STATS[m.kind].mobile;
-    // A free tile next to him out of this monster's reach, to slip away to.
-    const canSlip = (m: KnownMonster) => nextTo(s.pos).some((n) => k.seen[n] && isOpen(k.tiles[n]) &&
-      k.tiles[n] !== TRAP && !knownMonsterAt(k, n) && !nextTo(n).includes(m.pos) && standing(n) < s.hp);
-    const isFoe = (m: KnownMonster) => (!r.avoidMonsters || mobile(m)) && mayFight(m, false) &&
-      !(r.slipAway && canSlip(m));
+    const isFoe = (m: KnownMonster) => (!r.avoidMonsters || mobile(m)) && mayFight(m, false);
     if (adjacent.some((m) => !mobile(m) && !isFoe(m))) {
       let best = -1;
       let bestHits = incoming;
@@ -490,8 +481,8 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
       if (r.homeHp !== null && s.potions === 0 && s.hp <= r.homeHp * s.maxHp) t.goingHome = true;
       if (!survives(RULES.trapDamage, s.pos)) t.goingHome = true;
     }
-    const p = plan(k, s.pos, opts);
-    if (!t.goingHome) {
+    /** Where to go on plan `p`: gold or an item worth having, else a tile to explore; null if none. */
+    const seek = (p: Plan): [Action, Reason] | null => {
       // Gold and items he knows of (and, for a greedy teacher, monsters' gold): the nearest he has time for, an
       // item he goes out of his way for counting as nearer by its bonus.
       let best = -1;
@@ -540,6 +531,12 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
         const a = stepTo(p, frontier);
         if (a !== null) return [a, 'explore'];
       }
+      return null;
+    };
+    const p = plan(k, s.pos, opts);
+    if (!t.goingHome) {
+      const go = seek(p);
+      if (go) return go;
       t.goingHome = true;
     }
     if (here === STAIRS) return [LEAVE, 'leave'];
