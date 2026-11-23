@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { generateDungeon } from '../src/dungeon';
-import { NOTICE_RANGE, NOTICE_RANGE_LIT, TRAP_STEPS, chaserMayEnter, monsterMayEnter, notices } from '../src/monsters';
+import { CHASE, NOTICE_RANGE, NOTICE_RANGE_LIT, TRAP_STEPS, chaserMayEnter, monsterMayEnter, notices } from '../src/monsters';
 import { rngFrom, type Rng } from '../src/rng';
 import { BEDROCK, FLOOR, GOLD, POTION, STAIRS, TORCH, TRAP, WALL, type Tile } from '../src/tiles';
-import { ACTIONS, DRINK, RULES, allowedActions, newRaid, step, type Action } from '../src/world';
+import { ACTIONS, DRINK, RULES, WAIT, allowedActions, newRaid, step, type Action } from '../src/world';
 import { cell, raidFrom } from './maps';
 
 const noRng: Rng = () => { throw new Error('the monster stream was used'); };
@@ -72,6 +72,21 @@ describe('monsters', () => {
     t.potions = 0;
     step(t, wait, noRng);
     expect(at(t)).toBe(cell(t, 2, 1));
+  });
+
+  it('give up a chase after a few steps and wander a while, not noticing him', () => {
+    // He walks away along a corridor; the rat follows (three tiles behind after his step) until it loses interest.
+    const s = raidFrom(['r.@..........>']);
+    const stay = always(4);
+    for (let k = 0; k < CHASE.steps; k++) {
+      step(s, 1, noRng);
+      expect(at(s)).toBe(cell(s, k + 1, 0));
+    }
+    expect(s.monsters[0].rest).toBe(CHASE.rest);
+    for (let k = 0; k < CHASE.rest; k++) step(s, WAIT, stay); // three tiles away, but it stays put
+    expect([at(s), stay.draws]).toEqual([cell(s, CHASE.steps, 0), CHASE.rest]);
+    step(s, WAIT, noRng); // rested: it notices him again
+    expect(at(s)).toBe(cell(s, CHASE.steps + 1, 0));
   });
 
   it('chasing, cross a spike trap and take its damage when that is shortest; a trap counts as 2 steps', () => {
@@ -165,6 +180,6 @@ describe('monsters', () => {
     };
     expect(run('WANDER|1|monsters')).toEqual(run('WANDER|1|monsters'));
     expect(run('WANDER|1|monsters')).not.toEqual(run('WANDER|2|monsters'));
-    expect(RULES.timeLimit).toBe(150);
+    expect(RULES.timeLimit).toBe(200);
   });
 });

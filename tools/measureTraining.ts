@@ -7,7 +7,8 @@
  *
  * Options: --memory short|medium|long (only that size), --teachers a,b (only those), --skip-lessons,
  * --skip-practice, --temperature T (test raids' boldness, default the training tests'), --dungeon CODE (all in one
- * dungeon), --training '{json}' and --loop '{json}' (other training numbers).
+ * dungeon), --practice-from NAME (the teacher whose lessons practice starts from, default the healer),
+ * --training '{json}' and --loop '{json}' (other training numbers).
  */
 import { createModel, type Model } from '../src/model';
 import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
@@ -68,8 +69,10 @@ export function main(args: string[]) {
 
   if (!args.includes('--skip-practice')) {
     const base = createModel(inputSize(MEMORY_SIZES.medium), 'measure');
-    trainLessons(base, createAdam(base), 'healer', lessons, newStats(), mulberry32(1), { test: false, dungeon });
-    console.log(`practice (healer's lessons, medium)       ${HEAD}`);
+    // --practice-from NAME: practice starts from this teacher's lessons (default the healer's).
+    const from = (opt(args, '--practice-from') ?? 'healer') as TeacherName;
+    trainLessons(base, createAdam(base), from, lessons, newStats(), mulberry32(1), { test: false, dungeon });
+    console.log(`${`practice (${from}'s lessons, medium)`.padEnd(41)}  ${HEAD}`);
     console.log(`${'before'.padEnd(40)}  ${line(test(base))}`);
     for (const judge of JUDGES) {
       const m = clone(base);

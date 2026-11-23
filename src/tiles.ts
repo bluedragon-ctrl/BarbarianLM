@@ -65,7 +65,11 @@ export const MONSTER_STATS: Record<MonsterKind, MonsterStats> = {
 /** A rich monster carries this many times the usual gold. */
 export const RICH_TIMES = 3;
 
-export interface Monster { kind: MonsterKind; pos: number; hp: number; rich: boolean }
+export interface Monster {
+  kind: MonsterKind; pos: number; hp: number; rich: boolean;
+  /** Steps taken in the chase now, and turns left of losing interest (see `CHASE` in monsters.ts); unset at the start. */
+  chased?: number; rest?: number;
+}
 
 export const monsterGold = (m: Monster): number => MONSTER_STATS[m.kind].gold * (m.rich ? RICH_TIMES : 1);
 /** Wounded: at or below half HP. */

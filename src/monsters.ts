@@ -17,6 +17,13 @@ export const NOTICE_RANGE_LIT = 5;
 /** A wandering monster draws one of this many choices: up, right, down, left, or stay. */
 export const WANDER_CHOICES = 5;
 
+/**
+ * A chase does not last forever *(tune)*: after `steps` steps towards him a monster loses interest and wanders for
+ * `rest` turns, not noticing him (it still hits him if he stands next to it). Losing sight of him ends a chase too.
+ * Without this a rat or goblin that noticed him followed him everywhere, and every chase ended in a fight.
+ */
+export const CHASE = { steps: 5, rest: 6 };
+
 /** A spike trap counts as this many steps to a chasing monster, so it goes round when that is no longer. */
 export const TRAP_STEPS = 2;
 
@@ -119,15 +126,24 @@ export function monstersAct(s: RaidState, rng: Rng): { hits: MonsterHit[]; trapp
     }
     if (!stats.mobile) continue;
     if (m.hp <= 0) continue; // beaten by a trap earlier this turn; never acts again
-    if (notices(s, m)) {
+    if (m.rest) {
+      m.rest--;
+      m.pos = wanderStep(s, m, rng);
+    } else if (notices(s, m)) {
       dist ??= chaseDistances(s);
       const to = chaseStep(s, m, dist);
       if (to !== m.pos && s.map.tiles[to] === TRAP) {
         m.hp = Math.max(0, m.hp - TRAP_DAMAGE);
         trapped.push({ monster: { ...m, pos: to }, damage: TRAP_DAMAGE, beaten: m.hp === 0 });
       }
+      if (to !== m.pos) m.chased = (m.chased ?? 0) + 1;
+      if ((m.chased ?? 0) >= CHASE.steps) {
+        m.chased = 0;
+        m.rest = CHASE.rest;
+      }
       m.pos = to;
     } else {
+      m.chased = 0;
       m.pos = wanderStep(s, m, rng);
     }
   }
