@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`) and training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), and the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -65,6 +65,8 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Hidden dungeon events: he cannot see them and no judge scores them | What is not in the input and not rewarded never changes what a model does |
 | The events that do change his stats (a bat snatches a coin) | Things outside the model's view still change how its answer turns out |
 | The skald's saga after a raid: true parts from the raid, made-up parts by boldness | Hallucination: invented details told as confidently as facts |
+| The skald borrows events placed in this dungeon that he never met | The most believable hallucinations come from the same world as the facts: plausible, but not what happened |
+| The skald's boasts: a true fight told with inflated numbers ("a dozen goblins" after two) | A hallucination built on a real fact: right in outline, wrong in the detail |
 
 ## Dungeon and rules
 
@@ -422,52 +424,63 @@ The champion's lessons alone make a student who fights more: 5.5 beaten before a
 ### Tests
 
 - **Raid alone:** step by step, with the action bars, memory strip, his thoughts and the saga at the end.
-- **Raid alone** (`src/raid.ts`): each turn he reads his input, the model gives the probabilities at the boldness, "Block impossible actions" masks them when on, one number from `code|n|act` picks the action (one a turn, block or not, so the box never shifts the stream), and `step` answers with `code|n|monsters`. Each turn's record keeps the input, the unmasked and the sampled probabilities, what was allowed, the action and what it did.
-- **Many raids** (`src/raids.ts`): many raids alone, raids 0, 1, 2… of one dungeon or raid 0 of many codes. Average gold out; share left with gold, left with no gold (counted apart, or a player that leaves on the first turn looks safe), knocked out, locked in; average turns, potions drunk, torches lit, walls dug, wasted actions, waits, gold picked up and monsters beaten (what the judges see); with the block option on or off; with events on, events met and their net effect on gold ("bats took 14 gold over 200 raids").
-- **In the worker** (`src/worker.ts` runs `runJob` from `src/train.ts`, as in Karkulka): a request is `lessons` (model, stats, count, seed, teacher, optional dungeon and Adam state, which comes back so lessons can go on where they stopped), `practice` (judge instead of teacher) or `raids` (a plan, boldness, block). It answers `progress` every 25 raids, then `done` (model, stats, Adam) or `raidsDone` (counts), or `error`. `src/workerClient.ts` is the page's side.
+- **Raid alone** (`src/raid.ts`): each turn he reads his input, the model gives the probabilities at the boldness, "Block impossible actions" masks them when on, one number from `code|n|act` picks the action (one a turn, block or not, so the box never shifts the stream), and `step` answers with `code|n|monsters`. Each turn's record keeps the input, the unmasked and the sampled probabilities, what was allowed, the view he picked from, the action and what it did, the events that followed it, and his stats once the turn and its events were over (for thoughts and the UI). With events on, the record also keeps the spots placed and the events met.
+- **Many raids** (`src/raids.ts`): many raids alone, raids 0, 1, 2… of one dungeon or raid 0 of many codes. Average gold out; share left with gold, left with no gold (counted apart, or a player that leaves on the first turn looks safe), knocked out, locked in; average turns, potions drunk, torches lit, walls dug, wasted actions, waits, gold picked up and monsters beaten (what the judges see); with the block option on or off; with events on, events met, the ones whose effect changed his stats, and their net change to his gold ("events took 14 gold over 200 raids").
+- **In the worker** (`src/worker.ts` runs `runJob` from `src/train.ts`, as in Karkulka): a request is `lessons` (model, stats, count, seed, teacher, optional dungeon and Adam state, which comes back so lessons can go on where they stopped), `practice` (judge instead of teacher) or `raids` (a plan, boldness, block, events). It answers `progress` every 25 raids, then `done` (model, stats, Adam) or `raidsDone` (counts), or `error`. `src/workerClient.ts` is the page's side.
 
 ## His thoughts
 
-On a raid alone he thinks out loud, in a speech bubble, after some actions. As in Karkulka, a thought is **made up after the action is picked**, from what he saw and how sure he was; it never changes what he does. He speaks in compass words (up the screen is north).
+On a raid alone he thinks out loud, in a speech bubble, after some actions (`src/thoughts.ts`). As in Karkulka, a thought is **made up after the action is picked**, from what he saw and how sure he was; it never changes what he does. He speaks in compass words (up the screen is north).
 
-- **How sure he sounds** follows the probability of the action he took: sure ("East. Obviously."), likely ("East, I think."), unsure ("Hmm… east? Fine.").
-- **What he talks about,** first match wins: a hit taken ("Ow! Tough little rat."), a monster beaten ("Ha! Goblin down. Coins!"), a monster in sight ("Troll to the north. Too big. Not today."), gold in sight ("Gold heap east! Mine!"), a wall dug through ("Wall? What wall?"), the torch lit or going out ("Let there be light!" / "Torch is dying…"), low HP ("Need a potion…"), little time left ("Sun's going down. Stairs!"), a wasted action ("Nothing here to pick up. Hmph.").
-- **Pace:** at most one thought every 2 actions, except hits, beaten monsters and events, which always get one.
-- Lines live in a data file with the events, so they can be added without code changes.
+- **How sure he sounds** follows the probability he sampled the action with: sure from 0.75 ("East. Obviously."), likely from 0.4 ("East, I think."), unsure below ("Hmm… east? Fine."). The actions in words: north, east, south, west, pick it up, drink, light the torch, leave, wait.
+- **What he talks about,** first match wins:
+  1. The end of the trip ("Home with the loot!", "Out. Empty pockets, but out.", "Ooof… everything's spinning…", "The gate! Nooo!").
+  2. A hit taken, by the monster that hit hardest ("Ow! Tough little rat."), or a spike trap ("Ow! Spikes!").
+  3. A monster beaten ("Ha! Goblin down. Coins!").
+  4. An event he met (its own lines; quiet versions have quiet thoughts: "Ha! Nothing to steal, bat."). One behind a hit waits up to 3 actions for its turn, then is forgotten.
+  5. From here on, at most one thought every 2 actions: an item picked up ("Potion! Handy."); a monster in his view when he picked the action, the one the way he went first ("Troll to the north. Too big. Not today." plus how sure he was: "North, I think."), at most every 6 actions; gold in view ("Gold heap to the east! Mine!"), sometimes, at most every 6 actions; a wall dug through ("Wall? What wall?"); the torch lit or going out ("Let there be light!" / "Torch is out…"); a potion drunk; low HP, at 4 or less, again only after healing above 7 ("Need a potion…"); 20 turns left, once ("Sun's going down. Stairs!"); a wasted action, sometimes ("Nothing here to pick up. Hmph.").
+  6. After 6 quiet actions, now and then just how sure he was ("East, I think.").
+- **Pace:** at most one thought every 2 actions, except the end, hits, beaten monsters and events, which always get one.
+- Lines live in `src/data/events.json` with the events (`thoughts`), so they can be added without code changes. `{A}`/`{a}` is the action word, `{dir}` where something is ("to the south-west").
+- **Randomness:** its own stream, `code|n|thoughts`, apart from the events' (see `docs/plan.md`).
 
 ## Dungeon events and the skald's saga
 
 ### Hidden events
 
-The dungeon is full of little events he cannot see: a bat colony, an old skeleton telling a joke, a dripping echo. As in Karkulka, they are **hidden**: not in his view, not scored by any judge, so they never change what the model learns. Walking onto a spot sets it off (or hearing it, when it comes into his view); each spot happens once per raid.
+The dungeon is full of little events he cannot see: a bat colony, an old skeleton telling a joke, a dripping echo (`src/events.ts`). As in Karkulka, they are **hidden**: not in his view, not scored by any judge, so they never change what the model learns. Walking onto a spot sets it off (`step`; not starting on it, and not after the trip has ended), or seeing it, when it comes into his view (`hear`: in the tiles he sees after an action and not in those he saw before it, so the torch makes him hear more). Each spot happens once per raid: an event with a `chance` is rolled once, when he reaches it.
 
-- **Data file:** `src/data/events.json`, with Karkulka's shape: `id`, `name`, `fits`, `trigger` (`step` / `hear`), `versions` (saga sentences), `thoughts`, `popup`, optional `chance` and `effect`. A test checks the file.
-- **Places:** `anywhere`, `room`, `corridor`, `deadEnd`, `nearStairs` (within 4 steps), `nearGuard` (within 2 of an immobile monster), `nearTrap`, `deep` (far from the stairs).
-- **Spots:** about 12 per dungeon, none within another's 5 × 5; fixed per dungeon code, or new every raid (a setting, on by default).
-- **Events with an effect** (step only; each has quiet versions for when nothing can change):
+- **Data file:** `src/data/events.json`, with Karkulka's shape: `id`, `name`, `fits`, `trigger` (`step` / `hear`), `versions` (saga sentences), `thoughts`, `popup` (at most 16 characters), optional `chance` and `effect`; with an effect, a `deed` and (where the effect can find nothing to change) `quiet` versions and optional `quietThoughts`. The same file holds his thought lines and the skald's lines. `checkEventData` checks it, and a test runs the check. Events without an effect never mention gold or coins, because the skald may borrow them.
+- **Places:** `anywhere`; `room` (inside a room); `corridor` (outside the rooms); `deadEnd` (a corridor tile within 2 steps of a corridor tile with one way out); `nearStairs` (within 4 steps); `nearGuard` (within the 5 × 5 of a slime or troll where it starts: they never move); `nearTrap` (a trap in the 3 × 3); `deep` (at least 0.7 of the dungeon's greatest depth). *(tune)*
+- **Spots:** 12 per dungeon *(tune)* on bare floor (never the stairs, a trap, an item or a monster's starting tile), none within another's 5 × 5: shuffled from the spots stream, taken while none is too close. Then each spot gets a kind that fits its place and is not used yet, from a second stream, a kind with its own place before an `anywhere` one (so `anywhere` kinds do not take the rarer spots). Adding kinds never moves the spots. Fixed per dungeon code (`code|events`), or new every raid (`code|events|n`, the default).
+- **Events with an effect** (step only; each that can find nothing to change has quiet versions):
 
-| Effect | Example | What it does |
-| --- | --- | --- |
-| `takeGold` | A bat snatches a shiny coin | −1 gold |
-| `giveGold` | Coins hidden in a crack | +3 gold |
-| `giveTorch` | A friendly ghost hands him a torch | +1 torch (if under 3) |
-| `heal` | A cold spring | +3 HP (up to max) |
-| `drainTorch` | A gust of wind | A lit torch loses 5 turns |
+| Effect | Event | Where, chance | What it does | Quiet when |
+| --- | --- | --- | --- | --- |
+| `takeGold` | A thieving bat snatches a coin | corridor, 0.5 | −1 gold | he has no gold |
+| `giveGold` | Coins hidden in a crack | deep, 0.6 | +3 gold | never |
+| `giveTorch` | A friendly ghost hands him a torch | deep, 0.5 | +1 torch | his pack holds 3 |
+| `heal` | A cold spring | room, always | +3 HP, up to max | he has full HP |
+| `drainTorch` | A gust of wind | corridor, 0.5 | a lit torch loses 5 turns (it may go out) | no torch is burning |
 
-  These change his pinned tokens, so the model sees the result but never the cause.
-- **Starter cast** (about 25 kinds, most harmless): bat colony, dripping echo, old skeleton with a joke, spider weaving, mushroom glow, rumbling deep below, rats squeaking behind a wall, a carved warning ("Turn back!"), an empty treasure chest, a goblin's lost sock, a sleeping dragon's snore far away (never met), a rusty sword stuck in stone, wall paintings of a hero, a dwarf's forgotten lunch, a cold draught from the stairs, and so on.
-- Events happen on Raid alone and Many raids, both following the same "Events" checkbox (on by default), so the numbers describe the game you watch. Lessons and practice never have them, so the model is never trained on them. "Show events (for testing)" draws the spots.
-- **Their own randomness:** the dungeon, his action sampling, monster wandering, and events and thoughts each draw from a separate seeded stream. Turning events off or changing their wording never changes which actions are sampled, how monsters move or what the dungeon holds; only an effect, once it happens, changes his stats and so what follows.
+  These change his pinned tokens, so the model sees the result but never the cause. The effect happens after the turn's step, before he reads his next input; the turn's record keeps his stats with the effect in.
+- **The cast** (29 kinds, 24 harmless): bat colony, dripping echo, old skeleton with a joke, spider weaving, glowing mushrooms, rumble below, rats behind the wall, a carved warning ("Turn back!"), an empty chest, a goblin's lost sock, a dragon's snore far away (never met), a sword stuck in a stone, paintings of a hero, a dwarf's forgotten lunch, a draught from the stairs, the keeper's notice, a snoring guard, a loose stone and a chalk arrow by traps, glowworms, a rude echo, a puddle, a painted door, a lost mole.
+- Events happen on Raid alone and Many raids, both following the same "Events" checkbox (on by default), so the numbers describe the game you watch. In the code it is the `events` option of a raid (off unless asked, so lessons, practice and the test raids of training never have them and the model is never trained on them). "Show events (for testing)" draws the spots.
+- **Their own randomness:** the dungeon, his action sampling, monster wandering, the event spots, event chances, thoughts and the saga each draw from a separate seeded stream (see `docs/plan.md`). Turning events off or changing their wording never changes which actions are sampled, how monsters move or what the dungeon holds; only an effect, once it happens, changes his stats and so what follows. Tests check both.
+
+**Measured** (`npm run measure:events`, 1,000 codes, the teachers' raid 0, new spots): 12.0 spots a dungeon. Room kinds are placed in about 93% of dungeons, corridor and `deep` kinds in 34–44%, `nearStairs` and `nearGuard` in 31–36%, `nearTrap` in 21–23%, `anywhere` in 13% and `deadEnd` in 8%. A teacher meets 5.5–6.4 events a raid (about 4.5 by stepping, 1.6 by hearing); 0.57–0.69 a raid have an effect, and about 0.3 turn out quiet. Over 1,000 raids the effects come to: the spring heals 286–335 times, bats take a coin 113–147 times, the crack gives 3 gold 75–118 times, the ghost gives a torch 49–92 times, the wind drains a torch 40–53 times. Net change to his gold: +78 (thief) to +225 (dwarf) over 1,000 raids, about +0.1 to +0.2 gold a raid against 37–50 carried out: events colour a raid but do not decide it. Moving the crack from `deadEnd` (placed in 8% of dungeons, net −85 to +6) to `deep` made the gold events about even.
 
 ### The skald's saga
 
-After every raid alone a skald (a storyteller of old) sings **the saga of the raid**: true sentences from the raid record (the start, fights, gold, digging, the events he met, the ending) mixed with **made-up** ones, more the bolder the skald.
+After every raid alone a skald (a storyteller of old) sings **the saga of the raid** (`src/saga.ts`): true sentences from the raid record (the start, fights, gold, digging, the events he met, the ending) mixed with **made-up** ones, more the bolder the skald.
 
+- **True sentences,** in the order they happened: the opening (with the dungeon code); one per kind of monster beaten, with the count; the monster that hurt him most; a spike trap; the gold he picked up, with the amount; walls dug through; potions drunk; a torch lit; strength or vigour found; the events he met. Then the ending.
+- **Length:** at most 10 sentences. When there are too many, the least telling true parts go first (the last of equals first): events heard, the torch, potions, traps, hits, strength and vigour, harmless events met, digging, then fights and events with an effect, the gold last. Room is kept for the made-up parts expected at the boldness, so a retelling keeps the same true parts.
 - **Marks:** true sentences start with a small rune stone, made-up ones with a grey dashed cloud and italics. A line under it counts them ("6 true, 2 made up").
-- **What may be made up:** only happenings in the middle. The ending and the gold carried out are always true.
-- **How much, by boldness** (Karkulka's scale): nothing below 0.5; borrowed events (ones placed in this dungeon that he did not meet) up to 1.2; from 1.2, boasting and pure fantasy too ("He wrestled a dragon and won."), a growing share as boldness rises.
-- **Boasts** are a made-up kind Karkulka lacks: a true happening with inflated numbers ("He felled a dozen goblins" after one goblin). They are the sneakiest hallucination: built on a real event, wrong in the detail.
-- "Sing it again" tells the same raid again at the boldness set now.
+- **What may be made up:** only happenings in the middle. The ending and the gold carried out are always true, and no made-up sentence mentions gold or coins (the data check makes sure), so a made-up part never contradicts the gold. Borrowed events never have an effect.
+- **How much, by boldness** (Karkulka's scale): nothing below 0.5; about one made-up sentence in every other saga at 0.7 and one at 1.0, borrowed events only (ones placed in this dungeon that he did not meet; with events off, any harmless kind) up to 1.2; from 1.2 more, up to 4 at 2.5, with boasts (a share growing from 0 to 0.3) and pure fantasy (0 to 0.4, "He wrestled a dragon and won.") taking a growing share.
+- **Boasts** are a made-up kind Karkulka lacks: a true happening with inflated numbers ("He beat a dozen goblins single-handed!" after two goblins), always at least twice the real count. Fights, hits, traps and digging can be boasted about, never gold. A boast takes the place of the true sentence it inflates, so the saga never says both. They are the sneakiest hallucination: built on a real event, wrong in the detail.
+- "Sing it again" tells the same raid again at the boldness set now: the telling number picks a new stream (`code|n|saga|k`).
 
 ## Explanation (light touch)
 
@@ -519,4 +532,7 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
 - Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
 - The monsters-beaten judge still adds few fights of its own. The champion's lessons do more: his student beats 5.5 monsters before practice, against 4.8 for the healer's (BCDEFG). Paying per blow struck is still untried.
+- **Events (step 7):** the `deadEnd` kinds are placed in only about 8% of dungeons: few spots land near a corridor tip. Widen the place (more steps from the tip), or let spot-picking favour rare places? The cold spring is in almost every dungeon and heals in about a third of raids; is +3 HP too kind for a hidden event?
+- **Thoughts in long fights:** every hit gets a thought, so a five-blow fight with a slime is five "Ow!"s in a row. Keep (it reads like a fight), or let a hit from the same monster as last turn keep quiet?
+- **A closing line for the saga?** Karkulka ends its story with who shaped her ("The careful healer had taught him…"). Not built here; it would need the teacher or judge passed to the saga.
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,081 parameters. The UI may need to suggest more lessons for the long memory.

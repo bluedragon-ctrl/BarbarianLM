@@ -18,6 +18,7 @@ npm run measure:compass -- N   # stairs-compass distances over N codes
 npm run measure:model -- N     # model speed per example at each memory size
 npm run measure:teachers -- N  # each teacher over N codes (--no-wait, --try 'name:{json}', --rules '{json}')
 npm run measure:training -- L P T  # L lessons per teacher and memory, P practice raids per judge, T test codes
+npm run measure:events -- N    # event spots and what each teacher meets over N codes (--show CODE [teacher] [boldness])
 ```
 
 Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
@@ -35,9 +36,12 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, `SAVE_VERSION` |
 | `src/model.ts` | The network: sparse forward, softmax with temperature, masking, imitation and policy-gradient gradients, lazy Adam and SGD, saves |
 | `src/teachers.ts` | The seven teachers: what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `teacherRaid` |
-| `src/raid.ts` | A raid alone: one sampled action a turn from the model, boldness, "Block impossible actions", the per-turn record |
-| `src/raids.ts` | Many raids and their counts |
+| `src/raid.ts` | A raid alone: one sampled action a turn from the model, boldness, "Block impossible actions", events, the per-turn record |
+| `src/raids.ts` | Many raids and their counts, events met included |
 | `src/train.ts` | Lessons (imitation, Adam), practice (policy gradient, SGD, the three judges), test raids, `runJob` for the worker |
+| `src/events.ts`, `src/data/events.json` | Hidden events: the cast, thought and saga lines, places and spots, the five effects, `EventTracker` |
+| `src/thoughts.ts` | His thoughts after actions, by how sure he was and what happened |
+| `src/saga.ts` | The skald's saga: true sentences from the record, borrowed events, boasts and fantasy by boldness |
 | `src/worker.ts`, `src/workerClient.ts` | The Web Worker that runs `runJob`, and the page's side of it |
 
 ## Starting point

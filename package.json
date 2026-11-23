@@ -15,7 +15,8 @@
     "measure:compass": "node tools/run.mjs tools/measureCompass.ts",
     "measure:model": "node tools/run.mjs tools/measureModel.ts",
     "measure:teachers": "node tools/run.mjs tools/measureTeachers.ts",
-    "measure:training": "node tools/run.mjs tools/measureTraining.ts"
+    "measure:training": "node tools/run.mjs tools/measureTraining.ts",
+    "measure:events": "node tools/run.mjs tools/measureEvents.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

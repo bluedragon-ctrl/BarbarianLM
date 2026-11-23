@@ -308,7 +308,7 @@ interface JobCommon { model: Model; stats: TrainStats; count: number; seed: numb
 export type WorkerRequest =
   | (JobCommon & { kind: 'lessons'; teacher: TeacherName; adam?: Adam })
   | (JobCommon & { kind: 'practice'; judge: Judge })
-  | { kind: 'raids'; model: Model; plan: RaidPlan; temperature: number; block: boolean };
+  | { kind: 'raids'; model: Model; plan: RaidPlan; temperature: number; block: boolean; events?: boolean };
 
 export type WorkerResponse =
   | { type: 'progress'; done: number; total: number; stats?: TrainStats; counts?: RaidCounts }
@@ -324,7 +324,7 @@ export function runJob(req: WorkerRequest, post: (msg: WorkerResponse) => void):
   try {
     if (req.kind === 'raids') {
       const total = 'code' in req.plan ? req.plan.count : req.plan.codes.length;
-      const counts = manyRaids(req.model, req.plan, { temperature: req.temperature, block: req.block }, (_r, c) => {
+      const counts = manyRaids(req.model, req.plan, { temperature: req.temperature, block: req.block, events: req.events }, (_r, c) => {
         if (c.raids % LOOP.chunk === 0 && c.raids < total) post({ type: 'progress', done: c.raids, total, counts: { ...c } });
       });
       post({ type: 'raidsDone', counts });

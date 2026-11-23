@@ -9,12 +9,14 @@ Every random number comes from `rng.ts` (Karkulka's mulberry32 and FNV hash), on
 | Stream | Seed label (n = raid number) | Used for |
 | --- | --- | --- |
 | Dungeon | `code` | Layout, contents, monster flags |
-| Event spots | `code|events` (fixed) or `code|events|n` (new every raid) | Where the hidden events are |
+| Event spots | `code|events` (fixed) or `code|events|n` (new every raid); their kinds from the same label plus `|kinds` | Where the hidden events are, and which |
 | Actions | `code|n|act` | Sampling his next action |
 | Monsters | `code|n|monsters` | Wandering |
-| Events and thoughts | `code|n|story` | Event chances, thought lines, the saga |
+| Events | `code|n|story` | Event chances and which version happens |
+| Thoughts | `code|n|thoughts` | Thought lines |
+| Saga | `code|n|saga|k` (k = the telling: "Sing it again" counts up) | The saga's wording and made-up parts |
 
-A test checks the promise from CLAUDE.md: with events on and off, the same raid takes the same actions up to the first event with an effect.
+Thoughts and the saga have streams of their own (step 7 split them from the events'), so changing a thought line never changes which events happen. A test checks the promise from CLAUDE.md: with events on and off, the same raid takes the same actions up to the first event with an effect; with no effects, or other wording, the whole raid is the same.
 
 ## Steps
 
@@ -74,6 +76,7 @@ A test checks the promise from CLAUDE.md: with events on and off, the same raid 
 - Thoughts after actions, by how sure he was and what happened.
 - The saga with true sentences, borrowed events, boasts and fantasy by boldness.
 - **Tests:** the data file's shape; spot placement rules; the random-stream promise above; the saga never makes up the ending or the gold.
+- **Done:** 29 events; `npm run measure:events` (spots, how often each kind is placed, what each teacher meets) and `npm run measure:events -- --show CODE teacher boldness` (one raid's thoughts and saga). The numbers are in the design doc. Raid alone and Many raids take an `events` option (off unless asked; the UI turns it on by default); lessons, practice and the test raids of training never have events.
 
 ### 8. UI — `src/ui/`
 
