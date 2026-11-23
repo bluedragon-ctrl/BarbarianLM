@@ -5,19 +5,20 @@
  */
 import { generateDungeon } from '../src/dungeon';
 import { randomCode, rngFrom } from '../src/rng';
+import { STRENGTH, VIGOUR } from '../src/tiles';
 import { RULES } from '../src/world';
 import { TEACHERS, TEACHER_RULES, teacherRaid, type TeacherName, type TeacherRules } from '../src/teachers';
 
 interface Row {
   label: string; raids: number; gold: number; left: number; leftEmpty: number; knockedOut: number; lockedIn: number;
   turns: number; potions: number; torches: number; dug: number; blows: number; waits: number; wasted: number;
-  hpLost: number; fights: number; trollSeenKo: number; trollSeen: number;
+  hpLost: number; fights: number; trollSeenKo: number; trollSeen: number; strength: number; vigour: number; trolls: number;
 }
 
 function measure(label: string, name: TeacherName, codes: string[], o: { ownPickaxe?: boolean; rules?: TeacherRules } = {}): Row {
   const row: Row = {
     label, raids: 0, gold: 0, left: 0, leftEmpty: 0, knockedOut: 0, lockedIn: 0, turns: 0, potions: 0, torches: 0,
-    dug: 0, blows: 0, waits: 0, wasted: 0, hpLost: 0, fights: 0, trollSeenKo: 0, trollSeen: 0,
+    dug: 0, blows: 0, waits: 0, wasted: 0, hpLost: 0, fights: 0, trollSeenKo: 0, trollSeen: 0, strength: 0, vigour: 0, trolls: 0,
   };
   for (const code of codes) {
     let sawTroll = false;
@@ -41,6 +42,9 @@ function measure(label: string, name: TeacherName, codes: string[], o: { ownPick
       if (r.did === 'wait') row.waits++;
       if (r.did === 'nothing') row.wasted++;
       if (r.beaten) row.fights++;
+      if (r.beaten?.monster.kind === 'troll') row.trolls++;
+      if (r.picked === STRENGTH) row.strength++;
+      if (r.picked === VIGOUR) row.vigour++;
       row.hpLost += r.trapDamage + r.hits.reduce((s, h) => s + h.damage, 0);
     }
     if (sawTroll) {
@@ -81,12 +85,13 @@ export function main(args: string[]) {
 
 function print(count: number, rows: Row[]) {
   console.log(`${count} dungeon codes, raid 0 each; start HP ${RULES.startHp}, potions ${RULES.startPotions}\n`);
-  console.log('teacher            gold out   left  left/0   k.o. locked  turns  potions torches  blows  dug  waits wasted hp lost  beaten  k.o. if troll seen');
+  console.log('teacher            gold out   left  left/0   k.o. locked  turns  potions torches  blows  dug  waits wasted hp lost  beaten  k.o. if troll seen  strength vigour trolls');
   for (const r of rows) {
     console.log(`${r.label.padEnd(17)} ${avg(r.gold, r.raids)}   ${pct(r.left, r.raids)}  ${pct(r.leftEmpty, r.raids)}  ` +
       `${pct(r.knockedOut, r.raids)}  ${pct(r.lockedIn, r.raids)} ${avg(r.turns, r.raids, 0)}   ${avg(r.potions, r.raids, 2)}  ` +
       `${avg(r.torches, r.raids, 2)} ${avg(r.blows, r.raids)} ${avg(r.dug, r.raids)} ${avg(r.waits, r.raids)} ` +
       `${avg(r.wasted, r.raids)}  ${avg(r.hpLost, r.raids)}  ${avg(r.fights, r.raids)}   ` +
-      `${pct(r.trollSeenKo, Math.max(1, r.trollSeen))} of ${pct(r.trollSeen, r.raids)}`);
+      `${pct(r.trollSeenKo, Math.max(1, r.trollSeen))} of ${pct(r.trollSeen, r.raids)}    ` +
+      `${avg(r.strength, r.raids, 2)} ${avg(r.vigour, r.raids, 2)} ${avg(r.trolls, r.raids, 2)}`);
   }
 }

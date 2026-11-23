@@ -90,8 +90,8 @@ describe('dungeon generator', () => {
       const count = (t: number) => all(d).filter((i) => d.tiles[i] === t).length;
       expect(count(POTION)).toBe(GEN.potions);
       expect(count(TORCH)).toBe(GEN.torches);
-      expect(count(STRENGTH)).toBe(1);
-      expect(count(VIGOUR)).toBe(1);
+      expect(count(STRENGTH)).toBe(GEN.strengths.length);
+      expect(count(VIGOUR)).toBe(GEN.vigours.length);
       expect(count(TRAP)).toBe(GEN.traps);
       const rooms = inAnyRoom(d);
       for (const i of all(d)) {
@@ -146,4 +146,4 @@ describe('dungeon generator', () => {
   });
 });
 
-const FINGERPRINT = 293808965;
+const FINGERPRINT = 232885594;

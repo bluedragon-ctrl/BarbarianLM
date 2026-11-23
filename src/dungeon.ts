@@ -46,6 +46,12 @@ export const GEN = {
   richChance: 0.25,
   potions: 2,
   torches: 2,
+  /**
+   * Strength and vigour, each by the room-depth range it goes in: one closer, one deeper, so he weighs a longer,
+   * riskier trip for both against a shorter one for one.
+   */
+  strengths: [[0.3, 0.7], [0.6, 1]],
+  vigours: [[0.2, 0.6], [0.5, 1]],
   traps: 4,
   smallPile: 3,
   heap: 10,
@@ -328,8 +334,8 @@ function placeContents(d: Dungeon, stairsRoom: number, rng: Rng) {
   for (let n = 0; n < GEN.potions; n++) placeItem(POTION, 0.2, 0.8);
   placeItem(TORCH, 0, 0.5);
   for (let n = 1; n < GEN.torches; n++) placeItem(TORCH, 0.3, 0.8);
-  placeItem(STRENGTH, 0.4, 1);
-  placeItem(VIGOUR, 0.3, 0.9);
+  for (const [lo, hi] of GEN.strengths) placeItem(STRENGTH, lo, hi);
+  for (const [lo, hi] of GEN.vigours) placeItem(VIGOUR, lo, hi);
 
   // Spike traps in corridors, away from the stairs and from each other.
   const corridor = shuffle(rng, tiles.map((_, i) => i).filter((i) => !inRoom[i] && isEmpty(i) && depth[i] >= 3));
