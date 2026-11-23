@@ -265,4 +265,21 @@ describe('teacher raids', () => {
     expect(own).toBeGreaterThan(0);
     expect(copied).toBeGreaterThan(copiedThrough * 1.5);
   });
+
+  it('the champion fights a slime or troll only once he has taken a strength and a vigour', () => {
+    const rng = rngFrom('teachers-champion');
+    let big = 0;
+    for (let n = 0; n < 40; n++) {
+      teacherRaid(generateDungeon(randomCode(rng)), 'champion', 0, {
+        onTurn: (s, _t, turn) => {
+          const kind = turn.result.beaten?.monster.kind;
+          if (kind !== 'slime' && kind !== 'troll') return;
+          big++;
+          // Careful like the healer until buffed: a big fight before that is one the healer could afford too.
+          if (s.attack === RULES.startAttack || s.maxHp === RULES.startHp) expect(kind).toBe('slime');
+        },
+      });
+    }
+    expect(big).toBeGreaterThan(0);
+  });
 });
