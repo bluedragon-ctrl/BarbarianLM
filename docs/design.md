@@ -104,11 +104,12 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 
 *(All tune.)* Each monster has two flags the model sees:
 
-- **Wounded:** below half HP.
+- **Wounded:** at or below half HP (so a goblin at 2 of 4 shows as wounded).
 - **Rich:** carries three times the usual gold (about 1 monster in 4 *(tune)*; drawn with a loot sack). So kind plus flag tells exactly what it is worth.
 
 **Monsters show what they are worth.** The board draws each monster with its HP (bar and number) and its gold (coin and number).
 
+- **Next to** means sharing a side (up, down, left or right), never a diagonal: monsters hit and step only in the 4 directions he can.
 - **Mobile:** if next to him, it hits him. Otherwise, if it **notices** him, it steps towards him; otherwise it wanders (seeded). It notices him within 3 tiles, or **5 tiles while his torch is lit** *(tune)*, and only with a clear line of sight (below).
 - **Immobile:** hits him if he is next to it; never moves.
 - **Beaten:** it turns into a gold pile with its gold, on its tile (rats too: a rat's pile is 1).
@@ -132,13 +133,13 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 | Pick up | Takes what lies on his tile; on bare floor, nothing |
 | Drink | Drinks a potion; with none, nothing |
 | Light torch | Lights a torch; with none, or one already burning, nothing |
-| Leave | On the stairs: the trip ends and the gold is his. Elsewhere, nothing |
+| Leave | Works only on the stairs: the trip ends at once and the gold is his. Elsewhere, nothing |
 
 Every action, useful or not, takes one turn.
 
 ### Turn order
 
-1. He acts.
+1. He acts. If he left, the trip ends here: no trap, torch, time or monster step follows.
 2. Traps: if he stepped onto a spike trap, it hits him.
 3. The lit torch burns down a turn; time goes down a turn.
 4. Each monster acts, in a fixed order.
@@ -184,8 +185,8 @@ Every action, useful or not, takes one turn.
 | Torch: off, burning low (≤ 3 turns), lit | 3 |
 | Gold: 0, 1–5, 6–15, 16–30, 31+ | 5 |
 | Time left: < 20, 20–49, 50–99, 100+ | 4 |
-| Stairs compass: 8 directions, plus near / far / very far | 11 |
-| **Pinned, total** | **42** |
+| Stairs compass: 8 directions or here (on the stairs), plus near / far / very far (none when here) | 12 |
+| **Pinned, total** | **43** |
 | View now: 25 cells × 19 (one-hot over 17 kinds: 13 tiles and 4 monsters, plus the wounded and rich flags) | 475 |
 | Each remembered pair: present flag + view + action | 1 + 475 + 8 = 484 |
 
@@ -197,9 +198,9 @@ One hidden layer, 48 units, tanh, softmax over 8 actions (as in Karkulka, hand-w
 
 | Memory | Remembered pairs | Inputs | Parameters |
 | --- | --- | --- | --- |
-| Short | 1 | 1,001 | ≈ 48k |
-| Medium (default) | 3 | 1,969 | ≈ 95k |
-| Long | 6 | 3,421 | ≈ 165k |
+| Short | 1 | 1,002 | ≈ 48k |
+| Medium (default) | 3 | 1,970 | ≈ 95k |
+| Long | 6 | 3,422 | ≈ 165k |
 
 The inputs are one-hot, so training only visits the ~100 non-zero inputs per step: size barely affects speed.
 
