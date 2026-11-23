@@ -20,7 +20,7 @@ Run `npm test` and `npm run build` before every commit.
 
 Karkulka's core carries over, adapted: `rng.ts` (seeded RNG), `model.ts` (one hidden layer, hand-written, here with 8 outputs), the training worker, charts, and the GitHub Pages deploy workflow. Its thoughts, hidden events and story (`thoughts.ts`, `storyEvents.ts`, `story.ts`) are the models for his thoughts, the dungeon events and the skald's saga.
 
-Planned build order for phase one: seeded dungeon generator (with tests), world rules (turn order, bump to attack and dig, line of sight, torches, pickups, monsters), token encoding, teachers, lessons and practice, raid alone, many raids, UI.
+Phase one is built in the steps of `docs/plan.md`, one pull request each: setup, dungeon generator, world rules, tokens, model, teachers, training and many raids, events, thoughts and saga, UI, tuning.
 
 ## Conventions
 
@@ -29,7 +29,7 @@ Planned build order for phase one: seeded dungeon generator (with tests), world 
 - **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP).
 - **Child-friendly outcomes:** nothing graphic. Monsters turn into coins; the barbarian is knocked out and carried out.
 - **Deterministic generation:** dungeons come only from the seeded RNG, so a dungeon code always gives the same dungeon. Changing the generator changes every existing code, so call that out in the pull request.
-- **Hidden events and thoughts never change his actions:** they use their own randomness, never the raid's.
+- **Hidden events and thoughts have their own randomness, never the raid's:** turning them off, or changing their wording, never changes which actions are sampled, how monsters move or what the dungeon holds. Thoughts change nothing. The few events with an effect change his stats on purpose: the model sees the result but never the cause.
 - **Tune with numbers:** when changing the generator, rewards or training, measure across many dungeon codes and put before/after numbers in the pull request.
 - Game logic has no DOM dependencies and is tested directly; the UI lives in `src/ui/`.
 - Keep UI text plain and short.

@@ -89,7 +89,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Vigour | "Pick up": +4 max HP *(tune)* and full HP |
 | Dark | Out of sight (see [Sight and torches](#sight-and-torches)) |
 
-One thing per tile. A monster standing on an item hides it. Gold a monster drops shows as small gold below 6 and as a heap from 6; the board shows the exact amount on every pile.
+One thing per tile, plus at most one monster on top. A monster standing on an item hides it in his view. Gold piles hold any amount: a pile shows as small gold below 6 and as a heap from 6, and the board shows the exact amount on every pile.
 
 ### Monsters (4 kinds, each with two flags)
 
@@ -112,7 +112,8 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 - **Next to** means sharing a side (up, down, left or right), never a diagonal: monsters hit and step only in the 4 directions he can.
 - **Mobile:** if next to him, it hits him. Otherwise, if it **notices** him, it steps towards him; otherwise it wanders (seeded). It notices him within 3 tiles, or **5 tiles while his torch is lit** *(tune)*, and only with a clear line of sight (below).
 - **Immobile:** hits him if he is next to it; never moves.
-- **Beaten:** it turns into a gold pile with its gold, on its tile (rats too: a rat's pile is 1).
+- **Where monsters may step:** floor and any item (in a corridor there is no way round). Never onto spike traps, the stairs (so the way out is never blocked), walls, him or another monster. They never pick anything up.
+- **Beaten:** it drops its gold on its tile (rats too: a rat's pile is 1). On bare floor that makes a new pile; on gold the amounts add up (a heap from 6). If the tile holds another item (potion, torch, strength, vigour), the gold goes to the nearest empty floor tile, searched in a fixed order (up, right, down, left, then further out), so nothing is lost and the result is deterministic.
 
 ### The barbarian
 
@@ -137,6 +138,8 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 
 Every action, useful or not, takes one turn.
 
+**Block impossible actions** (a checkbox on Raid alone and Many raids, off by default): before an action is sampled, the ones that would do nothing get probability 0 and the rest are scaled back up to 1. Blocked: picking up on bare floor, or a potion or torch with a full pack; drinking with no potions; lighting a torch with none or one burning; Leave off the stairs; bumping bedrock. Wasteful but possible actions stay allowed (drinking at full HP; bumping a stone wall is digging). The bars still show what the model wanted, with blocked actions struck through. Lessons and practice never block, so he still has to learn not to waste turns, and Many raids can compare wasted actions with the box on and off.
+
 ### Turn order
 
 1. He acts. If he left, the trip ends here: no trap, torch, time or monster step follows.
@@ -150,7 +153,7 @@ Every action, useful or not, takes one turn.
 - **Without light** he sees 1 tile around him (3 × 3).
 - **With a lit torch** he sees 2 tiles around him (5 × 5).
 - His view is always 5 × 5 to the model; whatever he cannot see is **dark** (one token for both "out of the light" and "behind a wall"). The view includes his own tile, so he can see what he is standing on.
-- **Walls block sight** (stone, cracked and bedrock; monsters do not). His 8 neighbours are always seen. An outer-ring cell is seen if the cells between it and him are open:
+- **One sight rule** for him and the monsters: a cell is seen if a line from tile centre to tile centre reaches it without passing through a wall (stone, cracked or bedrock; monsters do not block). Stepping along the line one tile at a time, where it passes exactly halfway between two tiles either may be taken, and one open is enough. The rule works the same both ways, so he and a monster differ only in range. In his 5 × 5 it gives: his 8 neighbours are always seen, and an outer-ring cell is seen if the cells between it and him are open:
 
 | Outer cell (dx, dy) | Seen through |
 | --- | --- |
@@ -159,7 +162,7 @@ Every action, useful or not, takes one turn.
 | (±2, ±1), (±1, ±2) | either of the two cells next to the line (one is enough) |
 
   A wall cell itself is seen when the line reaches it, so he sees the wall that blocks him.
-- Monsters notice him by the same rule, extended to their longer range: a straight line from tile centre to tile centre that crosses no wall.
+- Monsters notice him by the same rule within a square of 3 tiles around them, or 5 while his torch is lit. So in the dark a goblin can notice him from 3 tiles while he sees only 1: that is the missing information.
 
 ### End of a trip and score
 
@@ -228,7 +231,7 @@ Policy gradient on his own trips, as in Karkulka. Judges:
 ### Tests
 
 - **Raid alone:** step by step, with the action bars, memory strip, his thoughts and the saga at the end.
-- **Many raids:** many raids alone. Average gold out; share left / knocked out / locked in; average turns, potions drunk, torches lit, walls dug.
+- **Many raids:** many raids alone. Average gold out; share left / knocked out / locked in; average turns, potions drunk, torches lit, walls dug, wasted actions; with events on, events met and their net effect on gold ("bats took 14 gold over 200 raids").
 
 ## His thoughts
 
@@ -260,7 +263,8 @@ The dungeon is full of little events he cannot see: a bat colony, an old skeleto
 
   These change his pinned tokens, so the model sees the result but never the cause.
 - **Starter cast** (about 25 kinds, most harmless): bat colony, dripping echo, old skeleton with a joke, spider weaving, mushroom glow, rumbling deep below, rats squeaking behind a wall, a carved warning ("Turn back!"), an empty treasure chest, a goblin's lost sock, a sleeping dragon's snore far away (never met), a rusty sword stuck in stone, wall paintings of a hero, a dwarf's forgotten lunch, a cold draught from the stairs, and so on.
-- Events happen on raids alone only; lessons and practice ignore them. A checkbox turns them off; "Show events (for testing)" draws the spots.
+- Events happen on Raid alone and Many raids, both following the same "Events" checkbox (on by default), so the numbers describe the game you watch. Lessons and practice never have them, so the model is never trained on them. "Show events (for testing)" draws the spots.
+- **Their own randomness:** the dungeon, his action sampling, monster wandering, and events and thoughts each draw from a separate seeded stream. Turning events off or changing their wording never changes which actions are sampled, how monsters move or what the dungeon holds; only an effect, once it happens, changes his stats and so what follows.
 
 ### The skald's saga
 
