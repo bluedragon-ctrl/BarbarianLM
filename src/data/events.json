@@ -1,0 +1,283 @@
+{
+  "events": [
+    {
+      "id": 1, "name": "Thieving bat", "fits": "corridor", "trigger": "step", "chance": 0.5, "effect": "takeGold", "deed": "a bat snatched a coin",
+      "versions": ["A bat swooped down and snatched a shiny coin from his purse.", "A cheeky bat flew off with one of his coins."],
+      "quiet": ["A bat swooped at his purse, found it empty and flew off in a huff.", "A bat looked for something shiny on him, found nothing and gave up."],
+      "thoughts": ["Hey! Bring that coin back!", "A bat stole my coin!"],
+      "quietThoughts": ["Ha! Nothing to steal, bat.", "Shoo, bat. My purse is empty."],
+      "popup": "Swoosh!"
+    },
+    {
+      "id": 2, "name": "Coins in a crack", "fits": "deep", "trigger": "step", "chance": 0.6, "effect": "giveGold", "deed": "coins hidden in a crack",
+      "versions": ["He found three coins hidden in a crack in the wall.", "Something glinted in a crack in the wall: three old coins."],
+      "thoughts": ["Coins in the wall! Mine.", "Ooh, someone hid coins here."],
+      "popup": "Clink!"
+    },
+    {
+      "id": 3, "name": "Friendly ghost", "fits": "deep", "trigger": "step", "chance": 0.5, "effect": "giveTorch", "deed": "a friendly ghost gave him a torch",
+      "versions": ["A friendly ghost floated up and handed him a torch.", "A shy little ghost gave him a torch and vanished with a giggle."],
+      "quiet": ["A friendly ghost offered him a torch, but his pack was full, so it floated away.", "A ghost held out a torch, saw his full pack and shrugged."],
+      "thoughts": ["A ghost with a torch? Thanks!", "Boo to you too. Nice torch."],
+      "quietThoughts": ["No room for that torch, ghost.", "Thanks, ghost. My pack's full."],
+      "popup": "Boo!"
+    },
+    {
+      "id": 4, "name": "Cold spring", "fits": "room", "trigger": "step", "effect": "heal", "deed": "a drink from a cold spring",
+      "versions": ["He drank from a cold spring and felt better.", "A cold spring bubbled up from the floor, and a sip made him feel stronger."],
+      "quiet": ["He found a cold spring, but he felt fine already.", "He splashed his face at a cold spring and walked on."],
+      "thoughts": ["Ahh, cold water. Better!", "A spring! Just what I needed."],
+      "quietThoughts": ["Nice spring. Not thirsty.", "Cold water. Brr."],
+      "popup": "Gulp!"
+    },
+    {
+      "id": 5, "name": "Gust of wind", "fits": "corridor", "trigger": "step", "chance": 0.5, "effect": "drainTorch", "deed": "a gust of wind made his torch burn low",
+      "versions": ["A gust of wind blew through the tunnel, and his torch burned low.", "A cold wind howled down the passage and nearly blew his torch out."],
+      "quiet": ["A cold gust blew through the tunnel, but he had no torch burning.", "The wind howled down the passage and ruffled his hair."],
+      "thoughts": ["No! My torch!", "Stupid wind. Torch is low."],
+      "quietThoughts": ["Brr, a draught.", "Windy down here."],
+      "popup": "Whoosh!"
+    },
+    {
+      "id": 6, "name": "Bat colony", "fits": "room", "trigger": "hear", "chance": 0.7,
+      "versions": ["Hundreds of bats hung from the ceiling, fast asleep.", "A cloud of bats woke up, circled once and went back to sleep."],
+      "thoughts": ["Bats. Lots of bats.", "Shh… sleeping bats."],
+      "popup": "Flap flap!"
+    },
+    {
+      "id": 7, "name": "Dripping echo", "fits": "anywhere", "trigger": "hear",
+      "versions": ["Drip… drip… drip… the echo went on and on.", "Water dripped somewhere, and the echo made it sound like a drum."],
+      "thoughts": ["Drip, drip. Annoying.", "Who left the tap on?"],
+      "popup": "Drip…"
+    },
+    {
+      "id": 8, "name": "Old skeleton", "fits": "deadEnd", "trigger": "step",
+      "versions": ["An old skeleton told him a joke. It was very dry.", "An old skeleton asked him why it never fights anyone. It has no guts!", "An old skeleton waved at him and went back to its nap."],
+      "thoughts": ["Ha! Good one, bones.", "A talking skeleton. Sure. Why not."],
+      "popup": "Rattle!"
+    },
+    {
+      "id": 9, "name": "Spider weaving", "fits": "corridor", "trigger": "step",
+      "versions": ["A spider was weaving a web across the tunnel, so he ducked under it.", "A spider waved four of its legs at him and went on weaving."],
+      "thoughts": ["Excuse me, spider.", "Nice web. Don't mind me."],
+      "popup": "A spider!"
+    },
+    {
+      "id": 10, "name": "Glowing mushrooms", "fits": "room", "trigger": "step",
+      "versions": ["Blue mushrooms glowed softly in a corner.", "He found a ring of glowing mushrooms and stepped carefully around it."],
+      "thoughts": ["Glowing mushrooms. Don't eat those.", "Pretty. Probably poison."],
+      "popup": "Glow!"
+    },
+    {
+      "id": 11, "name": "Rumble below", "fits": "deep", "trigger": "hear", "chance": 0.6,
+      "versions": ["The floor rumbled, as if something big turned over in its sleep.", "A deep rumble came from far below, then all was quiet."],
+      "thoughts": ["What was that rumble?", "Something big down there…"],
+      "popup": "Rumble…"
+    },
+    {
+      "id": 12, "name": "Rats behind the wall", "fits": "anywhere", "trigger": "hear", "chance": 0.6,
+      "versions": ["Rats squeaked and scrabbled behind the wall.", "He heard tiny feet running behind the stones."],
+      "thoughts": ["Rats in the walls. Great.", "Squeak squeak. I hear you."],
+      "popup": "Squeak!"
+    },
+    {
+      "id": 13, "name": "Carved warning", "fits": "nearGuard", "trigger": "step",
+      "versions": ["Someone had carved \"Turn back!\" into the wall. He did not.", "Big letters on the wall said \"Beware of the big one\"."],
+      "thoughts": ["Turn back? Never!", "Beware of what?"],
+      "popup": "Turn back!"
+    },
+    {
+      "id": 14, "name": "Empty chest", "fits": "room", "trigger": "step",
+      "versions": ["He found a big old chest. It was empty, except for a moth.", "He opened a chest with a creak, and found only dust."],
+      "thoughts": ["A chest! …empty. Of course.", "Who empties a chest and leaves it?"],
+      "popup": "Creak…"
+    },
+    {
+      "id": 15, "name": "Goblin's lost sock", "fits": "anywhere", "trigger": "step", "chance": 0.6,
+      "versions": ["He found a goblin's lost sock. It smelled terrible.", "A single green sock lay on the floor, with a hole in the toe."],
+      "thoughts": ["Ugh, goblin sock.", "Phew! What a smell."],
+      "popup": "Pee-yew!"
+    },
+    {
+      "id": 16, "name": "Dragon's snore", "fits": "deep", "trigger": "hear",
+      "versions": ["Far, far away, a dragon snored. He decided not to look.", "A snore as loud as thunder came from somewhere very deep."],
+      "thoughts": ["Was that a dragon? Let it sleep.", "Snoring… big snoring."],
+      "popup": "Zzzz…"
+    },
+    {
+      "id": 17, "name": "Sword in a stone", "fits": "room", "trigger": "step",
+      "versions": ["A rusty sword was stuck in a stone. He pulled. It stayed.", "He found a sword stuck in a stone, and it would not budge."],
+      "thoughts": ["Come out, sword! …fine.", "Stuck. Not my sword anyway."],
+      "popup": "Hngh!"
+    },
+    {
+      "id": 18, "name": "Hero paintings", "fits": "room", "trigger": "step",
+      "versions": ["Old paintings on the wall showed a hero who looked a bit like him.", "Faded paintings showed a hero fighting a troll. The troll was winning."],
+      "thoughts": ["Handsome fellow. Like me.", "Nice paintings."],
+      "popup": "A painting!"
+    },
+    {
+      "id": 19, "name": "Dwarf's lunch", "fits": "deadEnd", "trigger": "step",
+      "versions": ["A dwarf had left his lunch box behind: one old cheese sandwich.", "He found a dwarf's lunch box with a note: \"Back at noon\"."],
+      "thoughts": ["Someone forgot their lunch.", "Cheese sandwich. Very old cheese."],
+      "popup": "Lunch!"
+    },
+    {
+      "id": 20, "name": "Draught from the stairs", "fits": "nearStairs", "trigger": "hear",
+      "versions": ["A cold draught came down the stairs from the world above.", "He could smell fresh air coming down the stairs."],
+      "thoughts": ["Fresh air. The stairs are close.", "I can smell outside."],
+      "popup": "Whoo…"
+    },
+    {
+      "id": 21, "name": "Keeper's notice", "fits": "nearStairs", "trigger": "step",
+      "versions": ["A notice on the wall said: \"Gate closes at sundown. No exceptions.\"", "A notice from the keeper said: \"Please wipe your boots.\""],
+      "thoughts": ["Sundown. Got it.", "Rules, rules."],
+      "popup": "A notice!"
+    },
+    {
+      "id": 22, "name": "Snoring guard", "fits": "nearGuard", "trigger": "hear", "chance": 0.7,
+      "versions": ["Something big was snoring nearby.", "He heard heavy breathing from somewhere close."],
+      "thoughts": ["Someone big is sleeping.", "Shh. Snoring."],
+      "popup": "Snore…"
+    },
+    {
+      "id": 23, "name": "Loose stone", "fits": "nearTrap", "trigger": "step",
+      "versions": ["A floor stone clicked under his boot. Nothing happened.", "A loose stone wobbled under his foot, and he froze. Just a stone."],
+      "thoughts": ["Click? …phew.", "Careful now."],
+      "popup": "Click!"
+    },
+    {
+      "id": 24, "name": "Chalk arrow", "fits": "nearTrap", "trigger": "step",
+      "versions": ["Someone had drawn a chalk arrow on the floor, and the word \"Ouch\".", "Chalk marks on the floor said \"Watch your step\"."],
+      "thoughts": ["Watch my step. Right.", "Ouch? What's ouch?"],
+      "popup": "Ouch?"
+    },
+    {
+      "id": 25, "name": "Glowworms", "fits": "corridor", "trigger": "step",
+      "versions": ["Glowworms lit the ceiling like tiny stars.", "A line of glowworms showed him the way for a while."],
+      "thoughts": ["Little stars. Nice.", "Glowworms. Free light."],
+      "popup": "Twinkle!"
+    },
+    {
+      "id": 26, "name": "Echo", "fits": "anywhere", "trigger": "step", "chance": 0.5,
+      "versions": ["He shouted \"Hello!\" and the echo shouted back \"Go home!\"", "He hummed a tune, and the echo hummed it back, a little off."],
+      "thoughts": ["Hello? HELLO?", "Rude echo."],
+      "popup": "Hello-o-o!"
+    },
+    {
+      "id": 27, "name": "Puddle", "fits": "corridor", "trigger": "step", "chance": 0.6,
+      "versions": ["He stepped into a deep puddle. Splash!", "His boot sank into a cold puddle up to the ankle."],
+      "thoughts": ["Wet boots. Great.", "Splash! Yuck."],
+      "popup": "Splash!"
+    },
+    {
+      "id": 28, "name": "Painted door", "fits": "deadEnd", "trigger": "step",
+      "versions": ["A door was painted on the wall at the end of the tunnel. He knocked anyway.", "He found a painted door. Nobody answered."],
+      "thoughts": ["Knock knock. Nobody?", "A painted door. Very funny."],
+      "popup": "Knock knock!"
+    },
+    {
+      "id": 29, "name": "Lost mole", "fits": "deep", "trigger": "step", "chance": 0.5,
+      "versions": ["A lost mole popped out of the floor, sniffed, and popped back in.", "A mole asked him the way to the top. He pointed up."],
+      "thoughts": ["A mole! Wrong way, friend.", "Hello, little digger."],
+      "popup": "A mole!"
+    }
+  ],
+  "thoughts": {
+    "sure": ["{A}. Obviously.", "{A}, of course.", "{A}! Easy.", "I know this one: {a}."],
+    "likely": ["{A}, I think.", "Probably {a}.", "{A} it is.", "{A} looks good."],
+    "unsure": ["Hmm… {a}? Fine.", "Maybe {a}?", "No idea. {A}?", "{A}…? Why not."],
+    "hit": {
+      "rat": ["Ow! Tough little rat.", "That rat bit me!", "Ouch! Stupid rat."],
+      "goblin": ["Ow! Sneaky goblin!", "Hey! That goblin hits hard.", "Ouch! Goblin!"],
+      "slime": ["Eww! Slime hurts!", "Ow! Sticky and mean.", "Yuck! That slime stings."],
+      "troll": ["OOF! Troll!", "Ow ow ow. Big troll.", "That troll hits like a tree."]
+    },
+    "trap": ["Ow! Spikes!", "Who put spikes here?", "Ouch! My feet!"],
+    "beaten": {
+      "rat": ["Ha! Rat down. Coins!", "Bye, rat. Hello, coins."],
+      "goblin": ["Ha! Goblin down. Coins!", "That's one less goblin."],
+      "slime": ["Slime turned to coins! Nice.", "No more slime. Coins!"],
+      "troll": ["I beat a TROLL!", "Troll down! Pile of coins!"]
+    },
+    "monster": {
+      "rat": ["Rat {dir}. Easy.", "A rat {dir}. Squeak away.", "Rat {dir}! Smash!"],
+      "goblin": ["Goblin {dir}! Smash!", "A goblin {dir}. Sneaky.", "Goblin {dir}. Bring it."],
+      "slime": ["Slime {dir}. Gross.", "A slime {dir}. Don't touch it.", "Slime {dir}! Sticky."],
+      "troll": ["Troll {dir}. Too big. Not today.", "A TROLL {dir}!", "Troll {dir}. Careful…"]
+    },
+    "gold": ["Gold {dir}! Mine!", "Shiny {dir}!", "Coins {dir}!"],
+    "heap": ["Gold heap {dir}! Mine!", "A big heap {dir}! All mine!", "So much gold {dir}!"],
+    "picked": {
+      "gold": ["Gold! Into the purse.", "Mine now.", "Clink clink!"],
+      "potion": ["A potion. For later.", "Potion! Handy."],
+      "torch": ["Another torch. Good.", "Torch! For the dark bits."],
+      "strength": ["I feel STRONG!", "Muscles!"],
+      "vigour": ["I feel tougher!", "Ready for anything!"]
+    },
+    "dug": ["Wall? What wall?", "Smashed it!", "New door!"],
+    "light": ["Let there be light!", "Torch on. Now I see you."],
+    "torchOut": ["Torch is out…", "Dark again. Hmph."],
+    "drink": ["Glug glug. Better.", "Ahh, potion."],
+    "lowHp": ["Need a potion…", "Ow. Not feeling great.", "Must be careful now."],
+    "lateTime": ["Sun's going down. Stairs!", "Getting late. Better head out.", "The gate! Hurry!"],
+    "wasted": {
+      "pickUp": ["Nothing here to pick up. Hmph.", "Huh. Nothing."],
+      "drink": ["No potions left!", "Empty. Rats."],
+      "light": ["No torch to light.", "Can't light that now."],
+      "leave": ["The stairs aren't here…", "Leave? From here? No."],
+      "bump": ["Ouch. Solid rock.", "That won't move."]
+    },
+    "endings": {
+      "left": ["Home with the loot!", "Out! And rich!"],
+      "leftNoGold": ["Out. Empty pockets, but out.", "Safe. Not rich, but safe."],
+      "knockedOut": ["Ooof… everything's spinning…", "So… sleepy…"],
+      "lockedIn": ["The gate! Nooo!", "Locked in. Oh well."]
+    }
+  },
+  "saga": {
+    "openings": [
+      "Hear the saga of the raid on dungeon {code}!",
+      "Down the stairs of dungeon {code} went the barbarian.",
+      "Once, the barbarian went down into dungeon {code}.",
+      "Listen! The barbarian entered dungeon {code}, axe in hand."
+    ],
+    "beatenOne": ["A {monster} stood in his way, and soon it was a little pile of coins.", "He beat a {monster}, and it turned into coins."],
+    "beatenMany": ["He beat {n} {monsters}, and each turned into coins.", "{N} {monsters} met his axe and turned into coins."],
+    "hits": ["A {monster} hit him hard, but he kept going.", "He took a blow from a {monster} and grumbled."],
+    "trap": ["He stepped on a spike trap. Ouch!", "Spikes jumped out of the floor and poked his feet."],
+    "picked": ["He picked up {gold} gold along the way.", "He filled his purse with {gold} gold."],
+    "digOne": ["He smashed through a wall.", "A wall stood in his way, so he knocked it down."],
+    "digMany": ["He smashed through {n} walls.", "{N} walls fell before him."],
+    "potions": ["He drank {n} potions.", "He gulped down {n} potions."],
+    "potionOne": ["He drank a potion and felt better.", "He gulped down a potion."],
+    "torch": ["He lit a torch, and the shadows ran.", "His torch lit up the dark."],
+    "strength": ["He found strength, and hit harder from then on."],
+    "vigour": ["He found vigour, and felt tougher from then on."],
+    "endings": {
+      "left": ["Then he climbed the stairs into the daylight and carried out {gold} gold.", "And he walked out by the stairs with {gold} gold."],
+      "leftNoGold": ["Then he climbed back up the stairs with empty pockets.", "And he walked out by the stairs, carrying out no gold at all."],
+      "knockedOut": ["Then he was knocked out, and the dungeon keeper carried him out. He carried out no gold.", "But at last he was knocked out, and the keeper carried him up the stairs. Not a coin came with him."],
+      "lockedIn": ["Then the sun went down and the gate closed. The keeper let him out in the morning and kept all the gold.", "But he was too late: the gate closed at sundown, and the keeper kept every coin."]
+    },
+    "boasts": {
+      "beaten": ["He beat {big} {monsters} single-handed!", "{Big} {monsters} fell before his mighty axe!"],
+      "hits": ["A {monster} hit him {big} times, and he only laughed.", "He took {big} blows from a {monster} without a scratch."],
+      "trap": ["He stepped on {big} spike traps and did not even notice."],
+      "dig": ["He smashed through {big} walls with his bare hands!", "{Big} walls crumbled when he looked at them."]
+    },
+    "big": ["a dozen", "twenty", "fifty", "a hundred"],
+    "fantasy": [
+      "He wrestled a dragon and won.",
+      "A talking door asked him a riddle, and he answered with a song.",
+      "He rode a giant snail through a tunnel of crystals.",
+      "The dungeon walls sang him a battle song.",
+      "A tiny wizard turned his boots into frogs, then back again.",
+      "He arm-wrestled a stone giant to a draw.",
+      "He found a lake under the ground and swam across it with one breath.",
+      "A troll king asked him for advice and took it.",
+      "He tamed a cave bear, and it carried him for a while.",
+      "The moon shone into the dungeon, just for him."
+    ]
+  }
+}

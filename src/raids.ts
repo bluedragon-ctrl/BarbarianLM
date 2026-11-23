@@ -28,15 +28,19 @@ export interface RaidCounts {
   /** For the judges: gold picked up (kept or not) and monsters beaten. */
   goldPickedUp: number;
   beaten: number;
+  /** With events on: events met, the ones whose effect changed his stats, and their net change to his gold. */
+  events: number;
+  eventEffects: number;
+  eventGold: number;
 }
 
 export const newCounts = (): RaidCounts => ({
   raids: 0, goldOut: 0, left: 0, leftNoGold: 0, knockedOut: 0, lockedIn: 0, turns: 0, potions: 0, torches: 0,
-  walls: 0, wasted: 0, waits: 0, goldPickedUp: 0, beaten: 0,
+  walls: 0, wasted: 0, waits: 0, goldPickedUp: 0, beaten: 0, events: 0, eventEffects: 0, eventGold: 0,
 });
 
 /** Add one finished raid to the counts. */
-export function countRaid(c: RaidCounts, r: Pick<RaidRecord, 'state' | 'turns'>): RaidCounts {
+export function countRaid(c: RaidCounts, r: Pick<RaidRecord, 'state' | 'turns' | 'events'>): RaidCounts {
   const s = r.state;
   c.raids++;
   if (s.ended === 'left') {
@@ -54,6 +58,11 @@ export function countRaid(c: RaidCounts, r: Pick<RaidRecord, 'state' | 'turns'>)
     if (x.dugThrough) c.walls++;
     if (x.beaten) c.beaten++;
     c.goldPickedUp += x.goldGained;
+  }
+  for (const e of r.events?.met ?? []) {
+    c.events++;
+    if (e.effect) c.eventEffects++;
+    c.eventGold += e.gold ?? 0;
   }
   return c;
 }
@@ -74,6 +83,9 @@ export interface RaidSummary {
   waits: number;
   goldPickedUp: number;
   beaten: number;
+  events: number;
+  eventEffects: number;
+  eventGold: number;
 }
 
 export function summary(c: RaidCounts): RaidSummary {

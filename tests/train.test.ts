@@ -140,7 +140,8 @@ function toyRaid(actions: Action[], results: Partial<StepResult>[], end: { ended
   state.gold = end.gold;
   const input = encode(state, view(state), newMemory(1));
   const turns = actions.map((action, k): RaidTurn => ({
-    input, probs: new Float32Array(9), sample: new Float32Array(9), action,
+    input, probs: new Float32Array(9), sample: new Float32Array(9), view: view(state), action,
+    after: { hp: 14, maxHp: 14, gold: 0, potions: 2, torches: 1, torchLeft: 0, timeLeft: 200 },
     result: { action, did: 'walk', goldGained: 0, dugThrough: false, trapDamage: 0, hits: [], monstersTrapped: [], torchOut: false, ended: null, ...results[k] },
   }));
   return { code: 'TOY', n: 0, state, turns };
@@ -234,7 +235,7 @@ describe('many raids', () => {
     const c = countRaid(newCounts(), { state: s, turns: turns as unknown as RaidTurn[] });
     expect(c).toEqual({
       raids: 1, goldOut: 3, left: 1, leftNoGold: 0, knockedOut: 0, lockedIn: 0, turns: 10, potions: 1, torches: 1,
-      walls: 0, wasted: 1, waits: 1, goldPickedUp: 3, beaten: 0,
+      walls: 0, wasted: 1, waits: 1, goldPickedUp: 3, beaten: 0, events: 0, eventEffects: 0, eventGold: 0,
     });
     // Leaving with nothing counts apart.
     const e = raidFrom(['>.']);
