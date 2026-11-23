@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`) and the tokens (`src/tokens.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`) the tokens (`src/tokens.ts`) and the model (`src/model.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -57,6 +57,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Parameters grow with memory size here | In a real transformer they do not: attention reuses the same weights for any context length |
 | A cell in his view is one thing plus flags (a goblin, wounded, rich) | A token's embedding packs several properties at once |
 | A lit torch shows more, but monsters notice him from further away | Bringing more into the context is not free: it can pull in trouble too |
+| Each input that is on adds its own row of weights to the hidden layer | An embedding table: a token picks out its own row of numbers |
 | His thoughts ("Goblin to the east! Smash!"), made up after the action is picked | Models narrating their reasons: an account of why is not the real cause |
 | Hidden dungeon events: he cannot see them and no judge scores them | What is not in the input and not rewarded never changes what a model does |
 | The events that do change his stats (a bat snatches a coin) | Things outside the model's view still change how its answer turns out |
@@ -247,15 +248,23 @@ HP buckets are absolute so that "can I take this hit?" can be read straight from
 
 ### Network
 
-One hidden layer, 48 units, tanh, softmax over 8 actions (as in Karkulka, hand-written, no ML library).
+One hidden layer, 48 units, tanh, softmax over 8 actions (as in Karkulka, hand-written, no ML library: `src/model.ts`).
 
-| Memory | Remembered pairs | Inputs | Parameters |
-| --- | --- | --- | --- |
-| Short | 1 | 1,002 | ≈ 48k |
-| Medium (default) | 3 | 1,970 | ≈ 95k |
-| Long | 6 | 3,422 | ≈ 165k |
+| Memory | Remembered pairs | Inputs | Parameters | Active inputs (mean) |
+| --- | --- | --- | --- | --- |
+| Short | 1 | 1,002 | 48,536 | 62 |
+| Medium (default) | 3 | 1,970 | 95,000 | 113 |
+| Long | 6 | 3,422 | 164,696 | 187 |
 
-The inputs are one-hot, so training only visits the ~100 non-zero inputs per step: size barely affects speed.
+Parameters are inputs × 48 + 48 + 48 × 8 + 8. Active inputs are measured on random walks through real dungeons (`npm run measure:model`).
+
+- **Sparse:** the first layer is stored one row of 48 weights per input. Every input is 0 or 1, so the hidden layer is tanh of the bias plus the rows of the active inputs, and the backward pass adds to those rows only: the cost follows the ~100 active inputs, not the input size. Gradients are summed over a batch, remembering which rows were touched; the optimiser step visits and clears only those.
+- **Starting weights:** from the seeded stream `model|<seed>`, so the same seed gives the same network. First layer uniform in ±0.1 (with ~113 inputs on, each hidden unit starts with a spread of about 0.6, in tanh's steep middle), second layer uniform in ±½·√(6 / (48 + 8)) ≈ ±0.16 (half Glorot, as in Karkulka), biases 0. The first probabilities are near even.
+- **Probabilities:** softmax of the logits divided by the temperature (the boldness dial; at least 0.001, where it is argmax in all but name). **Block impossible actions** sets the blocked actions (`allowedActions`) to 0 and scales the rest back up to 1; the action bars still show the unmasked probabilities, struck through where blocked. Lessons and practice never mask.
+- **Lessons:** loss −log p(teacher's action) at temperature 1, gradient p − one-hot. Adam, learning rate 0.01, β₁ 0.9, β₂ 0.999, ε 10⁻⁸, on the batch's mean gradient, no clipping. Adam keeps two moments per weight (760 KB at the medium memory) but is **lazy**: a first-layer row with no gradient in a batch is left alone, moments included, and each row is bias-corrected by its own count of updates, so a row first seen late in training gets the same careful first step as one seen at the start. The biases and the second layer get a gradient from every example and use the global count.
+- **Practice:** loss −advantage · log p(sampled action), at temperature 1 (the sampling temperature only changes which actions get tried), gradient advantage · (p − one-hot). Plain SGD, learning rate 0.05, on the batch's mean gradient, shortened to length 1 when longer (Karkulka's). The advantage, its baseline and its clipping (Karkulka clips to ±1) belong to the training loop, step 6.
+- **Saves:** a plain object with `SAVE_VERSION`, inputs, hidden units, actions and the four weight arrays, each number kept to 9 significant digits (exact for 32-bit floats). Loading rejects another save version, another number of actions, an input size other than the memory size expects, or arrays that do not fit.
+- **Speed** (one core, per example, a batch of 32 per optimiser step): forward 7 / 13 / 15 µs; a lesson example with its share of the Adam step 19 / 23 / 36 µs; a practice example with SGD 14 / 21 / 31 µs, for the short / medium / long memory. A raid of 200 turns trains in about 5 ms.
 
 ### Phase 1: lessons (imitation)
 

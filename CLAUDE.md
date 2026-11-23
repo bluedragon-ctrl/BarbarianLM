@@ -15,6 +15,7 @@ npm run build      # typecheck + production build to dist/
 npm run dungeon -- CODE        # print a dungeon as text
 npm run measure:dungeons -- N  # generator numbers over N codes (default 1,000)
 npm run measure:compass -- N   # stairs-compass distances over N codes
+npm run measure:model -- N     # model speed per example at each memory size
 ```
 
 Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
@@ -30,6 +31,7 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/sight.ts` | The one sight rule for him and the monsters, his 5 × 5 view with dark cells |
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path, wander |
 | `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, `SAVE_VERSION` |
+| `src/model.ts` | The network: sparse forward, softmax with temperature, masking, imitation and policy-gradient gradients, lazy Adam and SGD, saves |
 
 ## Starting point
 
