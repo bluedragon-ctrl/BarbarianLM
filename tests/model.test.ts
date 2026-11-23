@@ -64,11 +64,11 @@ function checkGradient(m: Model, loss: () => number, g: ReturnType<typeof zeroGr
 }
 
 describe('sizes and start', () => {
-  it('parameter counts: 48,536 / 95,000 / 164,696', () => {
+  it('parameter counts: 48,633 / 95,193 / 165,033', () => {
     const counts = Object.values(MEMORY_SIZES).map((pairs) => parameterCount(createModel(inputSize(pairs), 0)));
-    expect(counts).toEqual([48536, 95000, 164696]);
+    expect(counts).toEqual([48633, 95193, 165033]);
     const m = createModel(inputSize(MEMORY_SIZES.medium), 0);
-    expect(m.w1.length + m.b1.length + m.w2.length + m.b2.length).toBe(95000);
+    expect(m.w1.length + m.b1.length + m.w2.length + m.b2.length).toBe(95193);
     expect(m.nH).toBe(HIDDEN);
     expect(N_OUT).toBe(ACTIONS);
   });
@@ -347,7 +347,7 @@ describe('saving', () => {
     const j = modelToJSON(createModel(30, 'bad', 4));
     expect(() => modelFromJSON({ ...j, version: SAVE_VERSION + 1 })).toThrow(/version/);
     expect(() => modelFromJSON(j, 31)).toThrow(/inputs/);
-    expect(() => modelFromJSON({ ...j, nOut: 9 })).toThrow(/actions/);
+    expect(() => modelFromJSON({ ...j, nOut: N_OUT - 1 })).toThrow(/actions/);
     expect(() => modelFromJSON({ ...j, nH: 5 })).toThrow(/sizes/);
     expect(() => modelFromJSON({ ...j, w2: j.w2.slice(1) })).toThrow(/sizes/);
     expect(modelFromJSON(j, 30).nIn).toBe(30);

@@ -70,27 +70,44 @@ export interface ViewSource extends SightMap { wallHp: number[]; gold: number[];
  * or off the map are dark. A monster hides what it stands on.
  */
 export function viewOf(s: ViewSource): ViewCell[] {
+  const out: ViewCell[] = [];
+  forViewCells(s, (i) => {
+    if (i < 0) {
+      out.push({ kind: DARK, wounded: false, rich: false });
+      return;
+    }
+    const m = s.monsters.find((q) => q.pos === i);
+    out.push(m
+      ? { kind: MONSTER_VIEW_KIND(m.kind), wounded: isWounded(m), rich: m.rich }
+      : { kind: shownKind(s.tiles[i], s.wallHp[i], s.gold[i]), wounded: false, rich: false });
+  });
+  return out;
+}
+
+/**
+ * Calls `f` for each cell of his 5 × 5 view, row by row from the top-left, with the map tile it shows, or -1 where
+ * the cell is dark (out of the light, behind a wall or off the map).
+ */
+function forViewCells(s: Pick<ViewSource, 'size' | 'tiles' | 'pos' | 'lit'>, f: (i: number) => void): void {
   const { size } = s;
   const range = s.lit ? SIGHT_LIT : SIGHT_DARK;
   const half = VIEW_SIZE >> 1;
   const px = s.pos % size;
   const py = Math.floor(s.pos / size);
-  const out: ViewCell[] = [];
   for (let dy = -half; dy <= half; dy++) {
     for (let dx = -half; dx <= half; dx++) {
       const x = px + dx;
       const y = py + dy;
       const i = y * size + x;
       const inside = x >= 0 && y >= 0 && x < size && y < size;
-      if (!inside || Math.max(Math.abs(dx), Math.abs(dy)) > range || !lineClear(s, s.pos, i)) {
-        out.push({ kind: DARK, wounded: false, rich: false });
-        continue;
-      }
-      const m = s.monsters.find((q) => q.pos === i);
-      out.push(m
-        ? { kind: MONSTER_VIEW_KIND(m.kind), wounded: isWounded(m), rich: m.rich }
-        : { kind: shownKind(s.tiles[i], s.wallHp[i], s.gold[i]), wounded: false, rich: false });
+      f(!inside || Math.max(Math.abs(dx), Math.abs(dy)) > range || !lineClear(s, s.pos, i) ? -1 : i);
     }
   }
+}
+
+/** The map tiles he sees now: exactly the cells of his view that are not dark. */
+export function seenTiles(s: Pick<ViewSource, 'size' | 'tiles' | 'pos' | 'lit'>): number[] {
+  const out: number[] = [];
+  forViewCells(s, (i) => { if (i >= 0) out.push(i); });
   return out;
 }

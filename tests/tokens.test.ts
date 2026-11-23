@@ -21,26 +21,26 @@ function expectBuckets(f: (x: number) => number, ranges: [number, number][]) {
 }
 
 describe('sizes', () => {
-  it('pinned 43, view 475, pair 484', () => {
+  it('pinned 43, view 475, pair 485', () => {
     expect(PINNED_SIZE).toBe(43);
     expect(PINNED_GROUPS.map(([, n]) => n)).toEqual([5, 3, 3, 4, 4, 3, 5, 4, 12]);
     expect(VIEW_KINDS).toBe(17);
     expect(CELL_SIZE).toBe(19);
     expect(VIEW_INPUTS).toBe(475);
-    expect(PAIR_SIZE).toBe(484);
-    expect(ACTIONS).toBe(8);
+    expect(PAIR_SIZE).toBe(485);
+    expect(ACTIONS).toBe(9);
   });
 
-  it('inputs 1,002 / 1,970 / 3,422 for short, medium and long memory', () => {
+  it('inputs 1,003 / 1,973 / 3,428 for short, medium and long memory', () => {
     expect(MEMORY_SIZES).toEqual({ short: 1, medium: 3, long: 6 });
-    expect(inputSize(MEMORY_SIZES.short)).toBe(1002);
-    expect(inputSize(MEMORY_SIZES.medium)).toBe(1970);
-    expect(inputSize(MEMORY_SIZES.long)).toBe(3422);
+    expect(inputSize(MEMORY_SIZES.short)).toBe(1003);
+    expect(inputSize(MEMORY_SIZES.medium)).toBe(1973);
+    expect(inputSize(MEMORY_SIZES.long)).toBe(3428);
   });
 
   it('the save version goes with this layout: bump it when a size changes', () => {
     const layout = [PINNED_SIZE, VIEW_INPUTS, PAIR_SIZE, ACTIONS, ...Object.values(MEMORY_SIZES)];
-    expect({ SAVE_VERSION, layout }).toEqual({ SAVE_VERSION: 1, layout: [43, 475, 484, 8, 1, 3, 6] });
+    expect({ SAVE_VERSION, layout }).toEqual({ SAVE_VERSION: 2, layout: [43, 475, 485, 9, 1, 3, 6] });
   });
 });
 

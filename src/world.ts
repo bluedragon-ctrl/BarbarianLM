@@ -13,7 +13,7 @@ import {
   type Monster, type Tile,
 } from './tiles';
 
-// The 8 actions (output tokens). The 4 bumps follow the direction order up, right, down, left.
+// The 9 actions (output tokens). The 4 bumps follow the direction order up, right, down, left.
 export const UP = 0;
 export const RIGHT = 1;
 export const DOWN = 2;
@@ -22,9 +22,11 @@ export const PICK_UP = 4;
 export const DRINK = 5;
 export const LIGHT_TORCH = 6;
 export const LEAVE = 7;
-export type Action = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
-export const ACTIONS = 8;
-export const ACTION_NAMES = ['up', 'right', 'down', 'left', 'pick up', 'drink', 'light torch', 'leave'] as const;
+/** Does nothing on purpose: the dungeon answers while he stands still (a monster comes to him and he strikes first). */
+export const WAIT = 8;
+export type Action = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export const ACTIONS = 9;
+export const ACTION_NAMES = ['up', 'right', 'down', 'left', 'pick up', 'drink', 'light torch', 'leave', 'wait'] as const;
 
 /** His numbers *(tune)*. */
 export const RULES = {
@@ -76,7 +78,7 @@ export interface RaidState {
 export interface StepResult {
   action: Action;
   /** What the action did: `nothing` is a wasted action (one "Block impossible actions" would block, or digging nothing). */
-  did: 'walk' | 'attack' | 'dig' | 'pickUp' | 'drink' | 'light' | 'leave' | 'nothing';
+  did: 'walk' | 'attack' | 'dig' | 'pickUp' | 'drink' | 'light' | 'leave' | 'wait' | 'nothing';
   /** The tile kind picked up. */
   picked?: Tile;
   /** Gold added to his purse. */
@@ -132,6 +134,7 @@ const packFull = (s: RaidState, t: Tile): boolean =>
  * For "Block impossible actions": which actions would do something. Blocked: picking up where there is nothing
  * to take or the pack is full, drinking with no potions, lighting with no torch or one burning, leaving off the
  * stairs, bumping bedrock. Bumping a stone wall is digging, and drinking at full HP still drinks: both allowed.
+ * Wait is never blocked.
  */
 export function allowedActions(s: RaidState): boolean[] {
   const here = s.map.tiles[s.pos];
@@ -141,6 +144,7 @@ export function allowedActions(s: RaidState): boolean[] {
   out.push(s.potions > 0);
   out.push(s.torches > 0 && !torchLit(s));
   out.push(here === STAIRS);
+  out.push(true); // Wait always does what it says
   return out;
 }
 
@@ -173,8 +177,16 @@ function dropGold(map: RaidMap, at: number, amount: number): number {
   return i;
 }
 
-/** He takes one action and the dungeon answers. Changes `s` in place. `monsterRng` is the `code|n|monsters` stream. */
-export function step(s: RaidState, action: Action, monsterRng: Rng): StepResult {
+/** Options for one step. */
+export interface StepOptions {
+  /** The pickaxe dwarf's own pickaxe: every wall falls in one blow (his lessons are played with it; he never is). */
+  pickaxe?: boolean;
+}
+
+/**
+ * He takes one action and the dungeon answers. Changes `s` in place. `monsterRng` is the `code|n|monsters` stream.
+ */
+export function step(s: RaidState, action: Action, monsterRng: Rng, opts: StepOptions = {}): StepResult {
   if (s.ended) throw new Error(`The trip has already ended (${s.ended})`);
   const r: StepResult = {
     action, did: 'nothing', goldGained: 0, dugThrough: false, trapDamage: 0, hits: [], monstersTrapped: [], torchOut: false, ended: null,
@@ -199,7 +211,7 @@ export function step(s: RaidState, action: Action, monsterRng: Rng): StepResult 
       }
     } else if (map.tiles[to] === WALL) {
       r.did = 'dig';
-      map.wallHp[to] = Math.max(0, map.wallHp[to] - s.attack);
+      map.wallHp[to] = opts.pickaxe ? 0 : Math.max(0, map.wallHp[to] - s.attack);
       if (map.wallHp[to] === 0) {
         map.tiles[to] = FLOOR;
         r.dugThrough = true;
@@ -246,6 +258,8 @@ export function step(s: RaidState, action: Action, monsterRng: Rng): StepResult 
       s.ended = r.ended = 'left';
       return r;
     }
+  } else if (action === WAIT) {
+    r.did = 'wait';
   }
 
   // 2. Traps.

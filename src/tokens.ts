@@ -1,7 +1,7 @@
 /**
  * The tokens: what the model reads. Everything is one-hot, laid out as in the design's context
  *
- *   pinned (43) | [view][action] … oldest to newest (484 each) | view now (475) → next action
+ *   pinned (43) | [view][action] … oldest to newest (485 each) | view now (475) → next action
  *
  * The pinned stats come in buckets; the view is 25 cells of 19 numbers; each remembered pair is a present flag,
  * a view and the action he took on it. Since every input is 0 or 1, an input is given as the list of the indices
@@ -15,7 +15,7 @@ import { ACTIONS, type Action, type RaidState } from './world';
  * Bump when the input or output layout changes (tile kinds, monster flags, pinned tokens, buckets, actions, memory
  * sizes): saved models from an older layout no longer fit.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 // ── Buckets ─────────────────────────────────────────────────────────────────
 
