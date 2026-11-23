@@ -405,17 +405,17 @@ Policy gradient on his own trips, as in Karkulka. Judges:
 
 **In one dungeon** the gold-out judge does what fine-tuning should: gold out rises from 23.4 to 26.5 in BCDEFG and from 28.3 to 35.4 in QWERTY, and he leaves more often. With the earlier dungeons (one strength, one vigour) the healer's student started lower in BCDEFG, and there practice took him from 8.6 to 22. The gold-picked-up judge makes him pick up a little more, but he is locked in five times as often and carries out less (BCDEFG). The monsters-beaten judge does the same damage with hardly any more fights: 4.7 to 4.8 beaten in BCDEFG, 6.1 to 6.4 in QWERTY. Before the dungeon change, a flat 0.2 a monster, 0.1 per HP, and HP to the power 1.5 all measured the same.
 
-**Practice from other teachers' lessons** (`--practice-from NAME`; 200 turns, the retuned teachers, BCDEFG, 1,000 lessons then 3,000 practice raids, medium memory, 100 test raids):
+**Practice from other teachers' lessons** (`--practice-from NAME`; 200 turns, the retuned teachers, the 150+ time bucket, BCDEFG, 1,000 lessons then 3,000 practice raids, medium memory, 100 test raids):
 
-| Lessons from | Before: gold out | left / k.o. / locked | beaten | Gold out judge: gold out | left | Monsters-beaten judge: gold out | k.o. / locked | beaten |
+| Lessons from | Before: gold out | left / k.o. / locked | beaten | Gold-out judge: gold out | left | Monsters-beaten judge: gold out | k.o. / locked | beaten |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Healer | 7.0 | 18% / 19% / 63% | 4.7 | 28.3 | 75% | 12.8 | 28% / 45% | 5.1 |
-| Champion | 13.9 | 40% / 11% / 49% | 4.9 | **28.7** | 87% | 20.0 | 33% / 15% | **5.8** |
-| Old warrior | 3.4 | 11% / 79% / 10% | 4.6 | 19.1 | 70% | 2.0 | 70% / 26% | 5.2 |
+| Healer | 13.9 | 36% / 33% / 31% | 4.8 | **32.0** | 89% | 17.4 | 16% / 43% | 5.2 |
+| Champion | 17.1 | 40% / 27% / 33% | **5.5** | 27.0 | 74% | 20.9 | 29% / 20% | 5.6 |
+| Old warrior | 0.8 | 2% / 94% / 4% | 4.6 | 17.0 | 61% | 1.6 | 81% / 15% | 4.8 |
 
-The monsters-beaten judge now picks more fights when practice starts from the champion's lessons: 4.9 to 5.8 beaten (the healer's, 4.7 to 5.1). The champion's student fights once his lessons show the fights won, as hoped, though the gain is still small, and being knocked out triples. The warrior's student is knocked out in most raids before practice and stays that way. With the gold-out judge, the champion's lessons end best: 28.7 gold, 87% left.
+The champion's lessons alone make a student who fights more: 5.5 beaten before any practice, where the healer's has 4.8 and reaches 5.2 only after 3,000 raids of the monsters-beaten judge. That judge still adds few fights of its own (champion 5.5 to 5.6); being knocked out or locked in is still what it mostly buys. The warrior's student is knocked out in nearly every raid after lessons; the gold-out judge pulls him up to 17.0, the monsters-beaten judge cannot. The gold-out judge does best from the healer's lessons here (32.0 gold, 89% left). An earlier run, before the time bucket and the flee fix, had the champion's ahead (28.7 against 28.3): one dungeon and one run each, so read these as rough.
 
-**Lessons in one dungeon are noisy.** In BCDEFG, after 1,000 lessons (medium memory): at 200 turns the healer's student carries out 7.0 gold (63% locked in), the champion's 13.9, the warrior's 3.4, the thief's 10.6; at 150 turns, on the same code, the healer's 18.1, the champion's 8.4 (69% locked in), the warrior's 10.6. In QWERTY at 200 turns: healer 12.4, champion 5.5 (15.2 with the block on). Which teacher does best changes with the dungeon and the day length, and a lone run says little; the step 6 table above (healer 23.4 in BCDEFG) was at 150 turns with the earlier teachers.
+**Lessons in one dungeon are noisy.** In BCDEFG, after 1,000 lessons (medium memory), the same teacher's student swings by several times between runs that differ only a little: the healer's carried out 7.0 gold at 200 turns before the time bucket and flee fix, 13.9 after, and 18.1 at 150 turns; the champion's 13.9, 17.1 and 8.4. The thief's carries out 10.2. In QWERTY at 200 turns (before the fix): healer 12.4, champion 5.5 (15.2 with the block on). The step 6 table above (healer 23.4 in BCDEFG) was at 150 turns with the earlier teachers.
 
 **Over new dungeons**, 3,000 raids are not enough for gold out to rise. The two bad judges break him: he is locked in about half the time and carries out almost nothing.
 
@@ -518,5 +518,5 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
 - **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
 - Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
-- The monsters-beaten judge picks only a few more fights, even from the champion's lessons (4.9 to 5.8 beaten in BCDEFG; 4.7 to 5.1 from the healer's). Starting from lessons with fights won helps a little; paying per blow struck is still untried.
+- The monsters-beaten judge still adds few fights of its own. The champion's lessons do more: his student beats 5.5 monsters before practice, against 4.8 for the healer's (BCDEFG). Paying per blow struck is still untried.
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,081 parameters. The UI may need to suggest more lessons for the long memory.
