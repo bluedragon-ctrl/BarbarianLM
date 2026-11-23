@@ -17,6 +17,7 @@ npm run measure:dungeons -- N  # generator numbers over N codes (default 1,000)
 npm run measure:compass -- N   # stairs-compass distances over N codes
 npm run measure:model -- N     # model speed per example at each memory size
 npm run measure:teachers -- N  # each teacher over N codes (--no-wait, --try 'name:{json}', --rules '{json}')
+npm run measure:training -- L P T  # L lessons per teacher and memory, P practice raids per judge, T test codes
 ```
 
 Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
@@ -34,6 +35,10 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, `SAVE_VERSION` |
 | `src/model.ts` | The network: sparse forward, softmax with temperature, masking, imitation and policy-gradient gradients, lazy Adam and SGD, saves |
 | `src/teachers.ts` | The six teachers: what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `teacherRaid` |
+| `src/raid.ts` | A raid alone: one sampled action a turn from the model, boldness, "Block impossible actions", the per-turn record |
+| `src/raids.ts` | Many raids and their counts |
+| `src/train.ts` | Lessons (imitation, Adam), practice (policy gradient, SGD, the three judges), test raids, `runJob` for the worker |
+| `src/worker.ts`, `src/workerClient.ts` | The Web Worker that runs `runJob`, and the page's side of it |
 
 ## Starting point
 

@@ -14,7 +14,8 @@
     "measure:dungeons": "node tools/run.mjs tools/measureDungeons.ts",
     "measure:compass": "node tools/run.mjs tools/measureCompass.ts",
     "measure:model": "node tools/run.mjs tools/measureModel.ts",
-    "measure:teachers": "node tools/run.mjs tools/measureTeachers.ts"
+    "measure:teachers": "node tools/run.mjs tools/measureTeachers.ts",
+    "measure:training": "node tools/run.mjs tools/measureTraining.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

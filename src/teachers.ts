@@ -545,7 +545,12 @@ export interface TeacherTurn { action: Action; reason: Reason; result: StepResul
  */
 export function teacherRaid(
   d: Dungeon, name: TeacherName, n = 0,
-  o: { ownPickaxe?: boolean; rules?: TeacherRules; onTurn?: (s: RaidState, t: Teacher, turn: TeacherTurn) => void } = {},
+  o: {
+    ownPickaxe?: boolean; rules?: TeacherRules;
+    /** Called with the teacher's action before `step` takes it, so lessons can encode what he saw. */
+    beforeStep?: (s: RaidState, action: Action) => void;
+    onTurn?: (s: RaidState, t: Teacher, turn: TeacherTurn) => void;
+  } = {},
 ): { state: RaidState; turns: TeacherTurn[] } {
   const s = newRaid(d);
   const t = newTeacher(name, s, o.rules);
@@ -554,6 +559,7 @@ export function teacherRaid(
   const turns: TeacherTurn[] = [];
   while (!s.ended) {
     const action = t.act(s);
+    o.beforeStep?.(s, action);
     const turn = { action, reason: t.reason, result: step(s, action, monsterRng, { pickaxe }) };
     turns.push(turn);
     o.onTurn?.(s, t, turn);

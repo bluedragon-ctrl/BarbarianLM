@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`) and the teachers (`src/teachers.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`) and training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -55,6 +55,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Practice judged by gold carried out | Fine-tuning with a reward (reinforcement learning) |
 | Practice judged by gold picked up: he hoards and never leaves | Reward hacking |
 | Practice judged by monsters beaten: he picks fights | A reward that measures the wrong thing |
+| Training in one dungeon, or each raid in a new one | Training on one text (memorising it) or a broad corpus (learning to generalise) |
 | Parameters grow with memory size here | In a real transformer they do not: attention reuses the same weights for any context length |
 | A cell in his view is one thing plus flags (a goblin, wounded, rich) | A token's embedding packs several properties at once |
 | A lit torch shows more, but monsters notice him from further away | Bringing more into the context is not free: it can pull in trouble too |
@@ -86,7 +87,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
    - Far third: a heap of 10 and a pile of 3, a slime, a goblin half the time.
    - The deepest room: a troll standing next to the heap of 10 it guards, and a second heap.
    - 1 monster in 4 is rich. No monster starts within 5 steps of the stairs; monsters start on bare floor.
-   - 2 potions and 1 vigour in mid-depth rooms, 2 torches (one near, one mid), 1 strength in a deeper room.
+   - 2 potions in mid-depth rooms, 2 torches (one near, one mid). 2 strength (one in the middle, depth 0.3–0.7, one deep, 0.6–1) and 2 vigour (0.2–0.6 and 0.5–1), never in the troll's room. One of each is closer and one deeper, so he weighs a longer, riskier trip for both against a shorter one for one; with both he can take on a slime or a troll. *(Two of each since step 6, from one; this changed every dungeon code.)* A later dungeon editor may set more or fewer.
    - 4 spike traps in corridors, at least 3 steps from the stairs and never side by side.
 
 **First numbers** (1,000 codes, `npm run measure:dungeons`; mean, with min–max):
@@ -264,7 +265,7 @@ Parameters are inputs × 48 + 48 + 48 × 9 + 9. Active inputs are measured on ra
 - **Starting weights:** from the seeded stream `model|<seed>`, so the same seed gives the same network. First layer uniform in ±0.1 (with ~113 inputs on, each hidden unit starts with a spread of about 0.6, in tanh's steep middle), second layer uniform in ±½·√(6 / (48 + 9)) ≈ ±0.16 (half Glorot, as in Karkulka), biases 0. The first probabilities are near even.
 - **Probabilities:** softmax of the logits divided by the temperature (the boldness dial; at least 0.001, where it is argmax in all but name). **Block impossible actions** sets the blocked actions (`allowedActions`) to 0 and scales the rest back up to 1; the action bars still show the unmasked probabilities, struck through where blocked. Lessons and practice never mask.
 - **Lessons:** loss −log p(teacher's action) at temperature 1, gradient p − one-hot. Adam, learning rate 0.01, β₁ 0.9, β₂ 0.999, ε 10⁻⁸, on the batch's mean gradient, no clipping. Adam keeps two moments per weight (760 KB at the medium memory) but is **lazy**: a first-layer row with no gradient in a batch is left alone, moments included, and each row is bias-corrected by its own count of updates, so a row first seen late in training gets the same careful first step as one seen at the start. The biases and the second layer get a gradient from every example and use the global count.
-- **Practice:** loss −advantage · log p(sampled action), at temperature 1 (the sampling temperature only changes which actions get tried), gradient advantage · (p − one-hot). Plain SGD, learning rate 0.05, on the batch's mean gradient, shortened to length 1 when longer (Karkulka's). The advantage, its baseline and its clipping (Karkulka clips to ±1) belong to the training loop, step 6.
+- **Practice:** loss −advantage · log p(sampled action), at temperature 1 (the sampling temperature only changes which actions get tried), gradient advantage · (p − one-hot). Plain SGD, learning rate 0.05, on the batch's mean gradient, shortened to length 1 when longer (Karkulka's). The advantage, its baseline and its clipping are the training loop's (see [Phase 2](#phase-2-practice-fine-tuning)).
 - **Saves:** a plain object with `SAVE_VERSION`, inputs, hidden units, actions and the four weight arrays, each number kept to 9 significant digits (exact for 32-bit floats). Loading rejects another save version, another number of actions, an input size other than the memory size expects, or arrays that do not fit.
 - **Speed** (one core, per example, a batch of 32 per optimiser step): forward 8 / 10 / 16 µs; a lesson example with its share of the Adam step 17 / 26 / 36 µs; a practice example with SGD 16 / 22 / 31 µs, for the short / medium / long memory. A raid of 200 turns trains in about 5 ms.
 
@@ -307,36 +308,97 @@ A fight is one it **may** have if the damage (`fightDamage`: the hits above, plu
 | Dwarf with his own pickaxe | Plans as if every wall falls in one blow; the barbarian cannot, so copying him wastes turns | As the dwarf, a wall costing 1 blow. His lessons are played with his pickaxe (`step(…, { pickaxe: true })`): there every wall does fall in one blow |
 | Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it | The warrior's rules, plus rule 2 |
 
-**Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack):
+**Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack; with two strength and two vigour in every dungeon, so the step 5 numbers with one of each follow the table):
 
-| Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Old warrior | 43.3 | 88% | 0% | 11% | 1% | 129 | 2.0 | 2.5 | 0 | 0 | 0 | 28.1 |
-| Healer | 41.4 | 99% | 0% | 1% | 0% | 128 | 1.5 | 2.4 | 0 | 0 | 1.8 | 17.2 |
-| Thief | 37.4 | 99% | 1% | 0% | 0% | 127 | 0.8 | 2.4 | 0 | 0 | 1.8 | 11.6 |
-| Dwarf | 44.0 | 100% | 0% | 0% | 0% | 130 | 1.2 | 2.3 | 5.9 | 2.6 | 1.7 | 15.3 |
-| Dwarf, own pickaxe | 45.4 | 100% | 0% | 0% | 0% | 129 | 1.2 | 2.3 | 4.8 | 4.8 | 1.7 | 15.1 |
-| … copied | 43.6 | 99% | 0% | 1% | 0% | 131 | 1.1 | 2.3 | 10.9 | 4.4 | 1.7 | 14.3 |
-| Goblin in disguise | 28.0 | 56% | 0% | 43% | 1% | 112 | 1.2 | 2.4 | 0 | 0 | 0 | 25.1 |
+| Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost | Strength | Vigour | Trolls beaten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Old warrior | 50.1 | 91% | 0% | 8% | 2% | 134 | 1.5 | 2.5 | 0 | 0 | 0 | 28.4 | 1.25 | 1.39 | 0.19 |
+| Healer | 44.2 | 99% | 0% | 1% | 0% | 128 | 1.1 | 2.4 | 0 | 0 | 1.8 | 17.4 | 1.14 | 1.31 | 0.02 |
+| Thief | 37.0 | 99% | 1% | 0% | 0% | 127 | 0.5 | 2.4 | 0 | 0 | 1.8 | 11.1 | 1.01 | 1.26 | 0 |
+| Dwarf | 46.4 | 99% | 0% | 1% | 0% | 130 | 1.0 | 2.3 | 5.8 | 2.8 | 1.7 | 16.2 | 1.19 | 1.25 | 0.03 |
+| Dwarf, own pickaxe | 47.6 | 99% | 0% | 1% | 0% | 129 | 1.0 | 2.3 | 4.8 | 4.8 | 1.8 | 16.0 | 1.19 | 1.26 | 0.03 |
+| … copied | 46.0 | 100% | 0% | 0% | 0% | 131 | 0.9 | 2.3 | 9.8 | 4.4 | 1.7 | 15.6 | 1.14 | 1.23 | 0.03 |
+| Goblin in disguise | 35.4 | 61% | 0% | 38% | 1% | 119 | 0.6 | 2.5 | 0 | 0 | 0 | 24.9 | 1.21 | 1.36 | 0.12 |
 
-The shape holds: the healer leaves almost always; the warrior earns a little more and is knocked out 11 times as often; the thief earns less but safely; the dwarf beats the healer; copied, the pickaxe dwarf strikes 10.9 blows for 4.4 walls where his own pickaxe needs one each; the goblin in disguise is knocked out in 97% of the raids where a troll comes in sight (10% for the warrior). The warrior's lead over the healer is thin (1.9 gold): in this dungeon care pays, and the healer only falls behind because he keeps 20 turns to spare and heads home at half HP.
+The shape holds: the healer leaves almost always; the warrior earns most (5.9 gold more than the healer) and is knocked out 8 times as often; the thief earns less but safely; the dwarf beats the healer; copied, the pickaxe dwarf strikes 9.8 blows for 4.4 walls where his own pickaxe needs one each; the goblin in disguise is knocked out in 73% of the raids where a troll comes in sight (7% for the warrior). No teacher seeks strength or vigour yet (they count as a small pile of gold), so each takes about 1.1–1.4 of the 2 of each when passing by.
+
+**With one strength and one vigour** (step 5, before the second of each): warrior 43.3 gold (11% knocked out, 0.04 trolls beaten a raid), healer 41.4, thief 37.4, dwarf 44.0, pickaxe dwarf 45.4 (copied 43.6), goblin 28.0 (knocked out in 97% of the raids with a troll in sight). The warrior's lead over the healer was thin (1.9 gold); the second strength and vigour widened it to 5.9, since buffs help most the one who fights.
 
 **Wait** (the open question, settled in step 5): a monster that steps next to him does not hit that turn, so whoever closes the gap is hit first. Every step he or a chasing monster takes changes the distance between them by one, so from two steps away no move of his can make the monster close the gap: only standing still does. Without Wait, the only ways to stand still were wasted actions, which "Block impossible actions" takes away. The careful teachers wait about twice a raid; with Wait the healer loses 1.8 HP less per raid and carries out 1.2 more gold (40.2 without), the dwarf 1.2 HP less and 0.6 more gold.
 
 **Start tuned in step 5:** 14 HP and 2 potions instead of 12 and 1. With the old start (same teachers, same codes) the warrior earned 38.5 and the healer 38.6, so the warrior's risks never paid; the healer was knocked out 2%, the warrior 12%, the goblin 39%. More HP and potions help the warrior most, since he spends HP for gold. The max-HP buckets moved with it (up to 14, 15–19, 20+), so vigour still shows.
 
+**How lessons run** (`src/train.ts`, step 6). One lesson is one raid by the teacher, played through the same `step` as his own raids (the pickaxe dwarf with his own pickaxe, so the student copies blows he cannot strike), on the raid's monster stream `code|n|monsters`. Each turn's input is encoded as on his own raids, memory strip included (the teacher's last views and actions), and paired with the teacher's action. The turns of a lesson are shuffled and go to Adam in batches of 32 turns (a batch can span two lessons; the last one of a job is stepped short). Lessons happen in **one dungeon** (raid numbers 0, 1, 2… in turn) or, with no code, **each in a new dungeon** from the job's random stream. Every 25 raids (at most about 20 times a job) 20 test raids are played at boldness 0.5: the 20 fixed codes of `codes|eval`, or raids 0–19 of the one dungeon.
+
+**Measured after lessons** (`npm run measure:training -- 1000 0 200`; 1,000 lessons per teacher, each in a new dungeon; then 200 other codes at boldness 0.5, block off; a fresh network each time):
+
+| Teacher | Short: gold out | left / k.o. / locked | Medium: gold out | left / k.o. / locked | Long: gold out | left / k.o. / locked |
+| --- | --- | --- | --- | --- | --- | --- |
+| (untrained) | | | 0.0 | 0% (58% left with none) / 15% / 27% | | |
+| Old warrior | 6.6 | 42% / 30% / 26% | 5.0 | 40% / 34% / 17% | 5.8 | 48% / 34% / 8% |
+| Healer | 4.7 | 35% / 39% / 23% | 5.5 | 45% / 32% / 13% | 2.8 | 29% / 36% / 14% |
+| Thief | 5.7 | 49% / 20% / 22% | 4.3 | 42% / 34% / 12% | 2.6 | 25% / 43% / 25% |
+| Dwarf | 3.0 | 28% / 27% / 38% | 2.6 | 30% / 20% / 38% | 1.4 | 19% / 32% / 35% |
+| Dwarf, own pickaxe | 5.2 | 48% / 19% / 19% | 1.9 | 27% / 28% / 24% | 4.0 | 35% / 35% / 15% |
+| Goblin in disguise | 2.4 | 26% / 37% / 28% | 2.8 | 30% / 40% / 24% | 1.6 | 19% / 41% / 30% |
+
+The rest of the "left" share is leaving with no gold (4–21%). The student is far behind his teachers (about 5 gold where they carry out 37–50). The teachers remember the whole map they have seen and walk back by it; he has his memory strip and the compass. Once he strays from what a teacher would do, he is in places no lesson showed (the imitation loss after 1,000 lessons is still 0.6–0.9). Even so, the teachers show through. The diggers' students dig most (2.7–3.9 walls) and waste the most turns striking walls (21.5 wasted actions for the dwarf's at the medium memory, 28.1 at the long one). The goblin's student is knocked out more than the healer's. "Block impossible actions" helps most where the student wastes most: the dwarf's student goes from 2.6 to 4.3 gold at the medium memory, and from 38% to 21% locked in. The long memory mostly does worst after 1,000 lessons: it has 165,033 parameters to fill.
+
+**In one dungeon** the student does much better, since there he can learn the map (`--dungeon`, medium memory, 1,000 lessons, test raids 0–99 of that dungeon):
+
+| Teacher | BCDEFG: gold out | left | QWERTY: gold out | left |
+| --- | --- | --- | --- | --- |
+| Old warrior | 11.6 | 34% | 17.8 | 49% |
+| Healer | 23.4 | 81% | 28.3 | 71% |
+| Thief | 23.5 | 85% | 23.6 | 72% |
+| Dwarf | 42.1 | 83% | 11.8 | 32% |
+| Dwarf, own pickaxe | 40.1 | 79% | 30.4 | 75% |
+| Goblin in disguise | 11.6 | 34% | 26.9 | 58% |
+
+Which teacher is best depends on the dungeon. In BCDEFG no troll comes in sight on these raids, so the goblin plays exactly like the warrior.
+
 ### Phase 2: practice (fine-tuning)
 
 Policy gradient on his own trips, as in Karkulka. Judges:
 
-- **Gold out** (the main one): his score.
-- **Gold picked up**: reward hacking. He learns to hoard and run out of time.
-- **Monsters beaten**: the wrong measure. He learns to pick fights.
+- **Gold out** (the main one): his score. Pays gold ÷ 50 on the last turn, if he left (a good raid scores about 0.9).
+- **Gold picked up**: reward hacking. Pays gold ÷ 50 at each pickup, kept or not. He learns to hoard and run out of time.
+- **Monsters beaten**: the wrong measure. Pays 0.05 per point of the beaten monster's full HP, so tougher ones pay more: rat 0.1, goblin 0.2, slime 0.3, troll 0.6. He should learn to pick fights.
+
+**How practice runs** (`src/train.ts`, step 6; numbers *(tune)*):
+
+- A practice raid is his own, at boldness 1, never blocked and with no events. Boldness 1 is the temperature the gradient is taken at, so he learns from his own choices; at 0.7 (Karkulka's) the policy drifted towards wasted actions.
+- **Reward to go:** each turn is credited with the judge's rewards from that turn to the end of the raid.
+- **Baseline** (settled in step 6): for each turn number, a running average of the reward to go at that turn, over the judge's raids that reached it; the first raid to reach a turn sets it, then it moves 5% of the way each raid. Each judge has its own. Karkulka's baseline, one running average of whole-raid scores, made every late turn look bad when a judge pays along the way (gold picked up, monsters beaten), and those judges then broke him in a few hundred raids.
+- **Advantage** = reward to go − baseline, clipped to ±1; one SGD step per raid on the mean gradient of its turns (learning rate 0.05, the whole gradient shortened to length 1). Batches of 8 raids at learning rate 0.2 did no better.
+
+**Measured** (`npm run measure:training -- 1000 3000 100 --dungeon CODE`; a medium-memory model after 1,000 healer lessons, then 3,000 practice raids; 100 test raids at boldness 0.5):
+
+| | Gold out | Left | Knocked out | Locked in | Gold picked up | Beaten |
+| --- | --- | --- | --- | --- | --- | --- |
+| BCDEFG, before practice | 23.4 | 81% | 13% | 6% | 28.5 | 4.7 |
+| … gold out | **26.5** | 89% | 6% | 5% | 29.4 | 4.8 |
+| … gold picked up | 16.6 | 53% | 16% | **31%** | **30.2** | 4.8 |
+| … monsters beaten | 17.6 | 58% | 16% | 26% | 30.3 | 4.8 |
+| QWERTY, before practice | 28.3 | 71% | 12% | 17% | 37.3 | 6.1 |
+| … gold out | **35.4** | 86% | 4% | 10% | 39.5 | 6.0 |
+| … gold picked up | 34.2 | 83% | 5% | 12% | 39.5 | 6.1 |
+| … monsters beaten | 17.4 | 43% | 17% | **40%** | 37.2 | 6.4 |
+| 200 new codes, before | 5.5 | 45% | 32% | 13% | 16.8 | 2.5 |
+| … gold out | 6.0 | 43% | 38% | 15% | 18.5 | 2.6 |
+| … gold picked up | 0.5 | 6% | 47% | **48%** | 20.5 | 2.9 |
+| … monsters beaten | 0.3 | 3% | 44% | **54%** | 17.7 | 2.9 |
+
+**In one dungeon** the gold-out judge does what fine-tuning should: gold out rises from 23.4 to 26.5 in BCDEFG and from 28.3 to 35.4 in QWERTY, and he leaves more often. With the earlier dungeons (one strength, one vigour) the healer's student started lower in BCDEFG, and there practice took him from 8.6 to 22. The gold-picked-up judge makes him pick up a little more, but he is locked in five times as often and carries out less (BCDEFG). The monsters-beaten judge does the same damage with hardly any more fights: 4.7 to 4.8 beaten in BCDEFG, 6.1 to 6.4 in QWERTY. Before the dungeon change, a flat 0.2 a monster, 0.1 per HP, and HP to the power 1.5 all measured the same.
+
+**Over new dungeons**, 3,000 raids are not enough for gold out to rise. The two bad judges break him: he is locked in about half the time and carries out almost nothing.
 
 ### Tests
 
 - **Raid alone:** step by step, with the action bars, memory strip, his thoughts and the saga at the end.
-- **Many raids:** many raids alone. Average gold out; share left / knocked out / locked in; average turns, potions drunk, torches lit, walls dug, wasted actions; with events on, events met and their net effect on gold ("bats took 14 gold over 200 raids").
+- **Raid alone** (`src/raid.ts`): each turn he reads his input, the model gives the probabilities at the boldness, "Block impossible actions" masks them when on, one number from `code|n|act` picks the action (one a turn, block or not, so the box never shifts the stream), and `step` answers with `code|n|monsters`. Each turn's record keeps the input, the unmasked and the sampled probabilities, what was allowed, the action and what it did.
+- **Many raids** (`src/raids.ts`): many raids alone, raids 0, 1, 2… of one dungeon or raid 0 of many codes. Average gold out; share left with gold, left with no gold (counted apart, or a player that leaves on the first turn looks safe), knocked out, locked in; average turns, potions drunk, torches lit, walls dug, wasted actions, waits, gold picked up and monsters beaten (what the judges see); with the block option on or off; with events on, events met and their net effect on gold ("bats took 14 gold over 200 raids").
+- **In the worker** (`src/worker.ts` runs `runJob` from `src/train.ts`, as in Karkulka): a request is `lessons` (model, stats, count, seed, teacher, optional dungeon and Adam state, which comes back so lessons can go on where they stopped), `practice` (judge instead of teacher) or `raids` (a plan, boldness, block). It answers `progress` every 25 raids, then `done` (model, stats, Adam) or `raidsDone` (counts), or `error`. `src/workerClient.ts` is the page's side.
 
 ## His thoughts
 
@@ -424,6 +486,10 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
 - The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless. (The step 5 warrior counts a rich monster's gold like any other.)
-- The warrior's lead over the healer is thin (43.3 against 41.4 gold). If lessons from the warrior come out no better than from the healer, give greed more to win: richer trolls' rooms, or a longer day so that the healer's 20 turns to spare cost him more.
+- **Teachers to review with the extra buffs:** each should have its own aim. The thief: gold and items without a fight wherever possible. The warrior (the reckless barbarian): fights. Perhaps a teacher that buffs up first (goes for strength and vigour, then takes on slimes and trolls), whose lessons would give the monsters-beaten judge wins to reinforce. Today no teacher seeks the buffs; all count them as a small pile of gold.
 - Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
+- **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
+- Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
+- The monsters-beaten judge hardly picks more fights, even now that tougher monsters pay more (tuned in step 6, from a flat 0.2). After the healer's lessons he already beats most monsters he can, and the rest (slimes, trolls) knock him out first. He mostly loses the way home instead. Perhaps practise from the warrior's lessons, or pay per blow struck.
+- After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,033 parameters. The UI may need to suggest more lessons for the long memory.
