@@ -32,6 +32,7 @@ A test checks the promise from CLAUDE.md: with events on and off, the same raid 
 - Cracked walls where a short dig saves many steps.
 - **Tests:** same code gives the same dungeon; every open tile is reachable from the stairs without digging; bedrock ring intact; one stairs; contents grow with depth.
 - **Measure** (a script over 1,000 codes): rooms, open tiles, dead ends, gold total and by depth, monsters by kind, cracked walls and the steps they save. First numbers go into the design doc.
+- **Done:** the generator steps and first numbers are in the design doc. `npm run dungeon -- CODE` prints a dungeon as text; a fingerprint test fails whenever the generator changes what a code gives.
 
 ### 2. World rules — `src/world.ts`, `src/sight.ts`, `src/monsters.ts`
 

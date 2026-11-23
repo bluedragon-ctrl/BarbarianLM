@@ -12,9 +12,19 @@ npm run dev        # local dev server
 npm test           # vitest unit tests
 npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build to dist/
+npm run dungeon -- CODE        # print a dungeon as text
+npm run measure:dungeons -- N  # generator numbers over N codes (default 1,000)
 ```
 
-Run `npm test` and `npm run build` before every commit.
+Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
+
+## How the code fits together
+
+| Module | Purpose |
+| --- | --- |
+| `src/rng.ts` | Seeded random numbers, one stream per purpose (see `docs/plan.md`) |
+| `src/tiles.ts` | Tile kinds, what each shows as in his view, monster kinds and stats |
+| `src/dungeon.ts` | Seeded dungeon generator, walking distances, how many steps a dig saves |
 
 ## Starting point
 

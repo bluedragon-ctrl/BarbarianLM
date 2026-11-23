@@ -71,6 +71,37 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 - **Riches grow with distance:** rooms far from the stairs hold more gold and tougher monsters, so going deep is a real risk.
 - **Cracked walls** are placed where a short dig saves many steps (the dwarf's shortcuts).
 
+**How the generator builds it** (`src/dungeon.ts`; numbers *(tune)*):
+
+1. Up to 8 rooms of 3–5 × 3–5 tiles, never touching (at least one wall between two rooms).
+2. Corridors: an L-shaped corridor joins each room to its nearest already joined room (a spanning tree), then 2 extra corridors between nearby rooms make loops.
+3. Stairs inside one of the rooms that reach deepest, so there is always a long way to go.
+4. Cracked walls (3 HP), up to 3, at least 4 tiles apart, each where digging through saves at least 8 steps: first walls that already part two places far apart on foot; then *shortcut corridors* between two rooms that are close but far apart on foot, blocked in the middle by a cracked wall. Until it is dug, both halves are dead ends.
+5. Contents by room depth (a room's average walking distance from the stairs, as a share of the deepest tile). The stairs room stays empty.
+   - Near third: a pile of 3 gold, a rat half the time.
+   - Middle third: two piles of 3, a goblin, a rat half the time.
+   - Far third: a heap of 10 and a pile of 3, a slime, a goblin half the time.
+   - The deepest room: a troll standing next to the heap of 10 it guards, and a second heap.
+   - 1 monster in 4 is rich. No monster starts within 5 steps of the stairs; monsters start on bare floor.
+   - 2 potions and 1 vigour in mid-depth rooms, 2 torches (one near, one mid), 1 strength in a deeper room.
+   - 4 spike traps in corridors, at least 3 steps from the stairs and never side by side.
+
+**First numbers** (1,000 codes, `npm run measure:dungeons`; mean, with min–max):
+
+| | |
+| --- | --- |
+| Rooms | 7.9 (5–8) |
+| Open tiles | 147 (102–180), of them corridor 30 (11–60) |
+| Dead ends | 2.6 (0–6) |
+| Deepest tile (steps from the stairs) | 30 (20–49) |
+| Gold in the dungeon | 113 (57–170): 62 in piles, 50 on monsters |
+| Gold by depth (near / middle / far third) | 6 / 35 / 72 |
+| Monsters | 2.2 rats, 3.8 goblins, 1.5 slimes, 1 troll; 2.1 rich |
+| Nearest monster from the stairs | 9 steps (5–19) |
+| Cracked walls | 1.8 (0–3); none in 9% of dungeons; each saves 23 steps (8–52) |
+
+Walking to the deepest tile and back takes about 60 of the 150 turns, before any fight or detour.
+
 ### Tiles (13 kinds in a view)
 
 | Kind | What it does |
