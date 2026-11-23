@@ -11,7 +11,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "dungeon": "node tools/run.mjs tools/showDungeon.ts",
-    "measure:dungeons": "node tools/run.mjs tools/measureDungeons.ts"
+    "measure:dungeons": "node tools/run.mjs tools/measureDungeons.ts",
+    "measure:compass": "node tools/run.mjs tools/measureCompass.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
