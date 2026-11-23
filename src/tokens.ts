@@ -8,7 +8,6 @@
  * that are 1 (`encode`), which is all the model's sparse forward and backward passes need; `dense` turns it into
  * a full vector for tests. No DOM, no randomness.
  */
-import { walkingDistances } from './dungeon';
 import { VIEW_KINDS, VIEW_SIZE, type ViewCell } from './sight';
 import { ACTIONS, type Action, type RaidState } from './world';
 
@@ -74,12 +73,6 @@ export function stairsDirection(size: number, from: number, stairs: number): num
 /** Near / far / very far, from the walking distance to the stairs. */
 export const distanceBucket = (steps: number): number => bucket(steps, [COMPASS_FAR_FROM, COMPASS_VERY_FAR_FROM]);
 
-/**
- * Walking distance from the stairs to every tile on the raid's own map (dug walls count as floor; monsters and
- * traps do not block). Changes only when a wall is dug through, so a raid can keep it until then.
- */
-export const stairsDistances = (s: RaidState): number[] => walkingDistances(s.map, s.map.stairs);
-
 // ── Layout ──────────────────────────────────────────────────────────────────
 
 /** Sizes of the pinned groups, in order. */
@@ -118,9 +111,9 @@ export const viewNowAt = (pairs: number): number => PINNED_SIZE + pairs * PAIR_S
 
 /**
  * The active pinned inputs, in increasing order: 9 numbers (the compass has no distance on the stairs) or 10.
- * `distances` is `stairsDistances(s)`, passed in so a raid can reuse it between digs.
+ * The distance comes from `s.stairsDist`, which `step` keeps up to date.
  */
-export function pinnedIndices(s: RaidState, distances: number[] = stairsDistances(s)): number[] {
+export function pinnedIndices(s: RaidState): number[] {
   const at = PINNED_AT;
   const out = [
     at.hp + hpBucket(s.hp),
@@ -134,7 +127,7 @@ export function pinnedIndices(s: RaidState, distances: number[] = stairsDistance
   ];
   const dir = stairsDirection(s.map.size, s.pos, s.map.stairs);
   out.push(at.compass + dir);
-  if (dir !== HERE) out.push(COMPASS_DISTANCE_AT + distanceBucket(distances[s.pos]));
+  if (dir !== HERE) out.push(COMPASS_DISTANCE_AT + distanceBucket(s.stairsDist[s.pos]));
   return out;
 }
 
@@ -170,8 +163,8 @@ export function remember(m: Memory, view: readonly ViewCell[], action: Action): 
  * the view now, so a slot always means the same number of turns ago; slots not yet filled (at the start of a
  * raid) are all zero, present flag included.
  */
-export function encode(s: RaidState, view: readonly ViewCell[], m: Memory, distances?: number[]): number[] {
-  const out = pinnedIndices(s, distances);
+export function encode(s: RaidState, view: readonly ViewCell[], m: Memory): number[] {
+  const out = pinnedIndices(s);
   const empty = m.size - m.pairs.length;
   m.pairs.forEach((p, k) => {
     const at = pairAt(empty + k);

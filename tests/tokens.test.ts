@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { generateDungeon } from '../src/dungeon';
+import { generateDungeon, walkingDistances } from '../src/dungeon';
 import { randomCode, rngFrom } from '../src/rng';
 import { DARK, MONSTER_VIEW_KIND, VIEW_KINDS } from '../src/sight';
 import { GOLD, MONSTER_STATS, SHOWN, WALL } from '../src/tiles';
 import {
   CELL_SIZE, COMPASS_DISTANCE_AT, HERE, MEMORY_SIZES, PAIR_SIZE, PINNED_AT, PINNED_GROUPS, PINNED_SIZE, RICH_AT,
   SAVE_VERSION, VIEW_INPUTS, WOUNDED_AT, attackBucket, dense, distanceBucket, encode, goldBucket, hpBucket,
-  inputSize, maxHpBucket, newMemory, packBucket, pairAt, pinnedIndices, remember, stairsDirection, stairsDistances,
+  inputSize, maxHpBucket, newMemory, packBucket, pairAt, pinnedIndices, remember, stairsDirection,
   timeBucket, torchBucket, viewIndices, viewNowAt,
 } from '../src/tokens';
 import { ACTIONS, DOWN, LEFT, PICK_UP, RIGHT, RULES, UP, newRaid, step, view, type Action } from '../src/world';
@@ -118,27 +118,36 @@ describe('stairs compass', () => {
   it('near / far / very far by walking distance, with edges at 9|10 and 19|20 steps', () => {
     // A corridor 22 long, the stairs at its west end.
     const s = raidFrom(['>......................']);
-    const dist = stairsDistances(s);
     const distanceOf = (x: number) => {
       s.pos = cell(s, x, 0);
-      const p = pinnedIndices(s, dist);
+      const p = pinnedIndices(s);
       expect(p[8]).toBe(PINNED_AT.compass + 6); // the stairs lie west
       return p[9] - COMPASS_DISTANCE_AT;
     };
     expect([1, 9, 10, 19, 20, 22].map(distanceOf)).toEqual([0, 0, 1, 1, 2, 2]);
   });
 
-  it('counts walking steps round walls, and dug walls as floor', () => {
+  it('counts walking steps round walls, and a wall dug through as floor from that turn on', () => {
     const s = raidFrom([
-      '>#.',
+      '>#@',
       '.#.',
       '.#.',
       '...',
     ]);
-    s.pos = cell(s, 2, 0);
-    expect(stairsDistances(s)[s.pos]).toBe(8);
-    s.map.tiles[cell(s, 1, 0)] = 0; // dug through
-    expect(stairsDistances(s)[s.pos]).toBe(2);
+    const far = () => s.stairsDist[s.pos];
+    expect(far()).toBe(8);
+    const rng = rngFrom('dig');
+    step(s, LEFT, rng); // 6 → 4 HP
+    step(s, LEFT, rng); // 4 → 2: cracked, still a wall
+    expect(far()).toBe(8);
+    expect(step(s, LEFT, rng).dugThrough).toBe(true);
+    expect(far()).toBe(2);
+    expect(pinnedIndices(s)[9]).toBe(COMPASS_DISTANCE_AT); // near
+  });
+
+  it('a new raid knows the walking distances of its dungeon', () => {
+    const d = generateDungeon('TOKENS');
+    expect(newRaid(d).stairsDist).toEqual(walkingDistances(d, d.stairs));
   });
 });
 
