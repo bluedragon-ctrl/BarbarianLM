@@ -15,7 +15,7 @@ import { ACTIONS, type Action, type RaidState } from './world';
  * Bump when the input or output layout changes (tile kinds, monster flags, pinned tokens, buckets, actions, memory
  * sizes): saved models from an older layout no longer fit.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 // ── Buckets ─────────────────────────────────────────────────────────────────
 
@@ -38,8 +38,8 @@ export const packBucket = (n: number): number => bucket(n, [1, 2, 3]);
 export const torchBucket = (torchLeft: number): number => bucket(torchLeft, [1, 4]);
 /** Gold: 0, 1–5, 6–15, 16–30, 31+. */
 export const goldBucket = (gold: number): number => bucket(gold, [1, 6, 16, 31]);
-/** Time left: under 20, 20–49, 50–99, 100+. */
-export const timeBucket = (timeLeft: number): number => bucket(timeLeft, [20, 50, 100]);
+/** Time left: under 20, 20–49, 50–99, 100–149, 150+. */
+export const timeBucket = (timeLeft: number): number => bucket(timeLeft, [20, 50, 100, 150]);
 
 // ── Stairs compass ──────────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ export const distanceBucket = (steps: number): number => bucket(steps, [COMPASS_
 
 /** Sizes of the pinned groups, in order. */
 export const PINNED_GROUPS = [
-  ['hp', 5], ['maxHp', 3], ['attack', 3], ['potions', 4], ['torches', 4], ['torch', 3], ['gold', 5], ['time', 4],
+  ['hp', 5], ['maxHp', 3], ['attack', 3], ['potions', 4], ['torches', 4], ['torch', 3], ['gold', 5], ['time', 5],
   ['compass', 12],
 ] as const;
 export type PinnedGroup = typeof PINNED_GROUPS[number][0];

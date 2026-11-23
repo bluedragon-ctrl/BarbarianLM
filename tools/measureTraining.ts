@@ -7,8 +7,10 @@
  *
  * Options: --memory short|medium|long (only that size), --teachers a,b (only those), --skip-lessons,
  * --skip-practice, --temperature T (test raids' boldness, default the training tests'), --dungeon CODE (all in one
- * dungeon), --training '{json}' and --loop '{json}' (other training numbers).
+ * dungeon), --practice-from NAME (the teacher whose lessons practice starts from, default the healer),
+ * --judges a,b (only those), --rules '{json}' (other game numbers), --training '{json}' and --loop '{json}' (other training numbers).
  */
+import { RULES } from '../src/world';
 import { createModel, type Model } from '../src/model';
 import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
 import { mulberry32 } from '../src/rng';
@@ -32,6 +34,8 @@ export function main(args: string[]) {
   // Try other training numbers: --training '{"sgdLearningRate":0.2}', --loop '{"practiceTemperature":1}'.
   if (opt(args, '--training')) Object.assign(TRAINING as Record<string, number>, JSON.parse(opt(args, '--training')!));
   if (opt(args, '--loop')) Object.assign(LOOP as Record<string, number>, JSON.parse(opt(args, '--loop')!));
+  // ... and game numbers: --rules '{"timeLimit":150}'.
+  if (opt(args, '--rules')) Object.assign(RULES as Record<string, number>, JSON.parse(opt(args, '--rules')!));
   const pos = args.filter((a, k) => !a.startsWith('--') && !args[k - 1]?.startsWith('--'));
   const lessons = Number(pos[0] ?? 300);
   const practice = Number(pos[1] ?? 1000);
@@ -68,10 +72,13 @@ export function main(args: string[]) {
 
   if (!args.includes('--skip-practice')) {
     const base = createModel(inputSize(MEMORY_SIZES.medium), 'measure');
-    trainLessons(base, createAdam(base), 'healer', lessons, newStats(), mulberry32(1), { test: false, dungeon });
-    console.log(`practice (healer's lessons, medium)       ${HEAD}`);
+    // --practice-from NAME: practice starts from this teacher's lessons (default the healer's).
+    const from = (opt(args, '--practice-from') ?? 'healer') as TeacherName;
+    trainLessons(base, createAdam(base), from, lessons, newStats(), mulberry32(1), { test: false, dungeon });
+    console.log(`${`practice (${from}'s lessons, medium)`.padEnd(41)}  ${HEAD}`);
     console.log(`${'before'.padEnd(40)}  ${line(test(base))}`);
-    for (const judge of JUDGES) {
+    const judges = (opt(args, '--judges')?.split(',') ?? JUDGES) as typeof JUDGES[number][];
+    for (const judge of judges) {
       const m = clone(base);
       const stats = newStats();
       const marks = [practice / 4, practice / 2, practice].map(Math.round);

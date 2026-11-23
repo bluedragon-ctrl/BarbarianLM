@@ -41,7 +41,7 @@ export const RULES = {
   torchTurns: 16,
   vigourHp: 4,
   trapDamage: TRAP_DAMAGE,
-  timeLimit: 150,
+  timeLimit: 200,
 } as const;
 
 export type TripEnd = 'left' | 'knockedOut' | 'lockedIn';

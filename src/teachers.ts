@@ -1,5 +1,5 @@
 /**
- * The teachers: six hand-written ways to play the barbarian, for his lessons (imitation). Each teacher sees only
+ * The teachers: seven hand-written ways to play the barbarian, for his lessons (imitation). Each teacher sees only
  * what he could see (the cells of his view that are not dark) and remembers every tile it has seen on this trip.
  * A shared planner finds the cheapest way over those tiles, counting turns for walking, digging and fighting and HP
  * for hits; the teachers are rule sets on top of it. They re-plan every turn, because monsters move.
@@ -247,11 +247,11 @@ export function wayBack(k: Knowledge, attack: number, dig: DigRule): { turns: In
 
 // ── The teachers ────────────────────────────────────────────────────────────
 
-export const TEACHERS = ['warrior', 'healer', 'thief', 'dwarf', 'pickaxe', 'goblin'] as const;
+export const TEACHERS = ['warrior', 'healer', 'thief', 'dwarf', 'pickaxe', 'goblin', 'champion'] as const;
 export type TeacherName = typeof TEACHERS[number];
 export const TEACHER_LABELS: Record<TeacherName, string> = {
   warrior: 'Old warrior', healer: 'Healer', thief: 'Thief', dwarf: 'Dwarf', pickaxe: 'Dwarf with his own pickaxe',
-  goblin: 'Goblin in disguise',
+  goblin: 'Goblin in disguise', champion: 'Champion',
 };
 
 /** A teacher's rules *(tune)*. */
@@ -261,16 +261,28 @@ export interface TeacherRules {
   dig: DigRule;
   /**
    * Fights a monster only if beating it leaves at least this much HP: a share of max HP. `null`: fights anything
-   * he could beat with his potions too (the warrior).
+   * he could beat (counting his potions, so the warrior).
    */
   fightSpare: number | null;
+  /**
+   * Counts his potions as HP when judging whether he can afford a fight: never, always, or once he has taken a
+   * strength and a vigour (the champion).
+   */
+  fightPotions: 'never' | 'always' | 'buffed';
   /**
    * Never goes to a fight: monster tiles are closed to him, gold near a slime or troll (or with a monster on or
    * next to it) is not worth it. He still strikes back at a mobile monster next to him that he can beat.
    */
   avoidMonsters: boolean;
-  /** Monsters' gold counts as gold to go for. */
-  huntMonsters: boolean;
+  /**
+   * Monsters' gold counts as gold to go for: never, always, or once he has taken a strength and a vigour (the
+   * champion gets stronger first).
+   */
+  huntMonsters: 'never' | 'always' | 'buffed';
+  /** A potion or torch he has room for counts as this many turns nearer than it is (he goes out of his way for it). */
+  itemBonus: number;
+  /** ... and a strength or vigour. */
+  buffBonus: number;
   /** `nextHit`: drinks only when the hits coming this turn would knock him out. `belowHalf`: below half HP. */
   drink: 'nextHit' | 'belowHalf';
   /** Lights a torch when it would show at least this many tiles he has not seen. */
@@ -288,20 +300,25 @@ export interface TeacherRules {
 }
 
 const HEALER: TeacherRules = {
-  hpWeight: 2, dig: 'never', fightSpare: 1 / 3, avoidMonsters: false, huntMonsters: false, drink: 'belowHalf',
-  torchReveal: 5, torchKeep: 0, timeMargin: 20, homeHp: 1 / 2, waits: true, trollBait: false,
+  hpWeight: 2, dig: 'never', fightSpare: 1 / 3, fightPotions: 'never', avoidMonsters: false, huntMonsters: 'never',
+  itemBonus: 0, buffBonus: 0, drink: 'belowHalf', torchReveal: 5, torchKeep: 0, timeMargin: 20, homeHp: 1 / 2,
+  waits: true, trollBait: false,
 };
 const WARRIOR: TeacherRules = {
-  hpWeight: 1, dig: 'never', fightSpare: null, avoidMonsters: false, huntMonsters: true, drink: 'nextHit',
-  torchReveal: 5, torchKeep: 0, timeMargin: 5, homeHp: 1 / 4, waits: false, trollBait: false,
+  hpWeight: 1, dig: 'never', fightSpare: null, fightPotions: 'always', avoidMonsters: false, huntMonsters: 'always',
+  itemBonus: 0, buffBonus: 10, drink: 'nextHit', torchReveal: 5, torchKeep: 0, timeMargin: 5, homeHp: 1 / 4,
+  waits: false, trollBait: false,
 };
 export const TEACHER_RULES: Record<TeacherName, TeacherRules> = {
   warrior: WARRIOR,
   healer: HEALER,
-  thief: { ...HEALER, hpWeight: 10, avoidMonsters: true, torchReveal: 2 },
+  thief: { ...HEALER, hpWeight: 10, avoidMonsters: true, torchReveal: 2, itemBonus: 10, buffBonus: 10 },
   dwarf: { ...HEALER, dig: 'real' },
   pickaxe: { ...HEALER, dig: 'pickaxe' },
   goblin: { ...WARRIOR, trollBait: true },
+  champion: {
+    ...HEALER, fightSpare: 0.1, fightPotions: 'buffed', huntMonsters: 'buffed', buffBonus: 20, timeMargin: 10,
+  },
 };
 
 /** Why a teacher took its action, for tests and the measuring script. */
@@ -366,8 +383,11 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
     /** Hits he would take standing on tile `i` while the monsters act (as they stand now). */
     const standing = (i: number) => k.monsters.reduce(
       (sum, m) => sum + (nextTo(i).includes(m.pos) ? MONSTER_STATS[m.kind].attack : 0), 0);
-    // The warrior counts his potions and only needs to stay up; the others want HP to spare without them.
-    const reserve = r.fightSpare === null ? s.hp + s.potions * RULES.potionHeal : s.hp;
+    // Buffed: he has taken a strength and a vigour. The warrior counts his potions and only needs to stay up; the
+    // champion counts them once buffed; the others want HP to spare without them.
+    const buffed = s.attack > RULES.startAttack && s.maxHp > RULES.startHp;
+    const when = (w: 'never' | 'always' | 'buffed') => w === 'always' || (w === 'buffed' && buffed);
+    const reserve = s.hp + (when(r.fightPotions) ? s.potions * RULES.potionHeal : 0);
     const afford = (damage: number): boolean => (r.fightSpare === null
       ? damage < reserve
       : damage === 0 || reserve - damage >= r.fightSpare * s.maxHp);
@@ -397,10 +417,11 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
 
     // Next to a slime or troll he will not fight: step to the free tile next to him where the fewest hits land,
     // if it is better than staying. (A mobile one he will not fight is left to the plan: any step away from it
-    // means it has to step after him, and then it does not hit that turn.)
+    // means it has to step after him, and then it does not hit that turn.) Not on the way home: the way home is
+    // planned with the hits counted, and stepping aside only to step back past it would take them twice, every turn.
     const mobile = (m: KnownMonster) => MONSTER_STATS[m.kind].mobile;
     const isFoe = (m: KnownMonster) => (!r.avoidMonsters || mobile(m)) && mayFight(m, false);
-    if (adjacent.some((m) => !mobile(m) && !isFoe(m))) {
+    if (!t.goingHome && adjacent.some((m) => !mobile(m) && !isFoe(m))) {
       let best = -1;
       let bestHits = incoming;
       for (const n of nextTo(s.pos)) {
@@ -461,28 +482,36 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
       if (r.homeHp !== null && s.potions === 0 && s.hp <= r.homeHp * s.maxHp) t.goingHome = true;
       if (!survives(RULES.trapDamage, s.pos)) t.goingHome = true;
     }
-    const p = plan(k, s.pos, opts);
-    if (!t.goingHome) {
-      // Gold and items he knows of (and, for a greedy teacher, monsters' gold): the nearest he has time for.
+    /** Where to go on plan `p`: gold or an item worth having, else a tile to explore; null if none. */
+    const seek = (p: Plan): [Action, Reason] | null => {
+      // Gold and items he knows of (and, for a greedy teacher, monsters' gold): the nearest he has time for, an
+      // item he goes out of his way for counting as nearer by its bonus.
       let best = -1;
+      let bestScore = 0;
       let bestValue = 0;
-      const consider = (i: number, value: number, extra: number) => {
+      const consider = (i: number, value: number, extra: number, bonus = 0) => {
         if (value <= 0 || p.cost[i] < 0 || !enough(p.turns[i] + extra, i)) return;
         const damage = p.damage[i] + extra * standing(i);
         if (!afford(damage) || !survives(damage + RULES.trapDamage, i)) return;
-        if (best < 0 || p.cost[i] < p.cost[best] || (p.cost[i] === p.cost[best] && value > bestValue)) {
+        const score = p.cost[i] - bonus;
+        if (best < 0 || score < bestScore || (score === bestScore && value > bestValue)) {
           best = i;
+          bestScore = score;
           bestValue = value;
         }
       };
+      const bonusOf = (t: Tile) => (t === STRENGTH || t === VIGOUR ? r.buffBonus
+        : t === POTION || t === TORCH ? r.itemBonus : 0);
       const guarded = (i: number) => k.monsters.some((m) =>
         (mobile(m) ? squareDistance(size, m.pos, i) <= 1 : squareDistance(size, m.pos, i) <= 2));
       for (let i = 0; i < k.tiles.length; i++) {
         if (!k.seen[i] || i === s.pos) continue;
         if (r.avoidMonsters && guarded(i)) continue;
-        consider(i, itemValue(s, k.tiles[i], k.gold[i]), 1);
+        consider(i, itemValue(s, k.tiles[i], k.gold[i]), 1, bonusOf(k.tiles[i]));
       }
-      if (r.huntMonsters) for (const m of k.monsters) consider(m.pos, monsterGold(m as Monster), 1);
+      if (when(r.huntMonsters)) {
+        for (const m of k.monsters) consider(m.pos, monsterGold(m as Monster), 1);
+      }
       if (best >= 0) {
         const a = stepTo(p, best);
         if (a !== null) return [a, 'target'];
@@ -503,6 +532,12 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
         const a = stepTo(p, frontier);
         if (a !== null) return [a, 'explore'];
       }
+      return null;
+    };
+    const p = plan(k, s.pos, opts);
+    if (!t.goingHome) {
+      const go = seek(p);
+      if (go) return go;
       t.goingHome = true;
     }
     if (here === STAIRS) return [LEAVE, 'leave'];

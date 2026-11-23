@@ -186,6 +186,18 @@ describe('the teachers\' rules', () => {
     expect(thief.reason).not.toBe('target');
   });
 
+  it('steps away from a slime it will not fight, but not on the way home past it', () => {
+    // The way home passes another slime; stepping right is out of reach of both.
+    const s = raidFrom(['>.@..', '#ss##']);
+    s.torches = 0;
+    const out = knowing('thief', s);
+    expect(out.act(s)).toBe(RIGHT);
+    expect(out.reason).toBe('flee');
+    const home = knowing('thief', s);
+    home.goingHome = true;
+    expect(home.act(s)).toBe(LEFT); // stepping aside would only mean passing them again
+  });
+
   it('dwarf digs when it is shorter than walking round; the healer walks round', () => {
     const s = raidFrom(['>#@', '.#.', '.#.', '...']);
     s.torches = 0;
@@ -264,5 +276,22 @@ describe('teacher raids', () => {
     expect(own).toBe(ownThrough);
     expect(own).toBeGreaterThan(0);
     expect(copied).toBeGreaterThan(copiedThrough * 1.5);
+  });
+
+  it('the champion fights a slime or troll only once he has taken a strength and a vigour', () => {
+    const rng = rngFrom('teachers-champion');
+    let big = 0;
+    for (let n = 0; n < 40; n++) {
+      teacherRaid(generateDungeon(randomCode(rng)), 'champion', 0, {
+        onTurn: (s, _t, turn) => {
+          const kind = turn.result.beaten?.monster.kind;
+          if (kind !== 'slime' && kind !== 'troll') return;
+          big++;
+          // Careful like the healer until buffed: a big fight before that is one the healer could afford too.
+          if (s.attack === RULES.startAttack || s.maxHp === RULES.startHp) expect(kind).toBe('slime');
+        },
+      });
+    }
+    expect(big).toBeGreaterThan(0);
   });
 });

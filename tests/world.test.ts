@@ -17,7 +17,7 @@ describe('a new raid', () => {
     const before = JSON.stringify(d);
     const s = newRaid(d);
     expect(s.pos).toBe(d.stairs);
-    expect([s.hp, s.maxHp, s.attack, s.potions, s.torches, s.torchLeft, s.gold, s.timeLeft]).toEqual([14, 14, 2, 2, 1, 0, 0, 150]);
+    expect([s.hp, s.maxHp, s.attack, s.potions, s.torches, s.torchLeft, s.gold, s.timeLeft]).toEqual([14, 14, 2, 2, 1, 0, 0, 200]);
     expect([RULES.startHp, RULES.startAttack, RULES.startPotions, RULES.startTorches]).toEqual([14, 2, 2, 1]);
     const rng = rngFrom('ABC123|1|monsters');
     for (let k = 0; k < 40 && !s.ended; k++) step(s, (k % 4) as Action, rng);
@@ -33,7 +33,7 @@ describe('bumps', () => {
     const r = step(s, RIGHT, noRng);
     expect(r.did).toBe('walk');
     expect(s.pos).toBe(cell(s, 1, 0));
-    expect([s.turn, s.timeLeft]).toEqual([1, 149]);
+    expect([s.turn, s.timeLeft]).toEqual([1, 199]);
   });
 
   it('wastes the turn on bedrock', () => {
@@ -41,7 +41,7 @@ describe('bumps', () => {
     const r = step(s, UP, noRng);
     expect(r.did).toBe('nothing');
     expect(s.pos).toBe(cell(s, 0, 0));
-    expect(s.timeLeft).toBe(149);
+    expect(s.timeLeft).toBe(199);
   });
 
   it('digs a stone wall by his attack, to floor at 0', () => {
