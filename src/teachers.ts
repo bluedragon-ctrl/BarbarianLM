@@ -417,10 +417,11 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
 
     // Next to a slime or troll he will not fight: step to the free tile next to him where the fewest hits land,
     // if it is better than staying. (A mobile one he will not fight is left to the plan: any step away from it
-    // means it has to step after him, and then it does not hit that turn.)
+    // means it has to step after him, and then it does not hit that turn.) Not on the way home: the way home is
+    // planned with the hits counted, and stepping aside only to step back past it would take them twice, every turn.
     const mobile = (m: KnownMonster) => MONSTER_STATS[m.kind].mobile;
     const isFoe = (m: KnownMonster) => (!r.avoidMonsters || mobile(m)) && mayFight(m, false);
-    if (adjacent.some((m) => !mobile(m) && !isFoe(m))) {
+    if (!t.goingHome && adjacent.some((m) => !mobile(m) && !isFoe(m))) {
       let best = -1;
       let bestHits = incoming;
       for (const n of nextTo(s.pos)) {

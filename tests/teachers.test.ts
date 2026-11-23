@@ -186,6 +186,18 @@ describe('the teachers\' rules', () => {
     expect(thief.reason).not.toBe('target');
   });
 
+  it('steps away from a slime it will not fight, but not on the way home past it', () => {
+    // The way home passes another slime; stepping right is out of reach of both.
+    const s = raidFrom(['>.@..', '#ss##']);
+    s.torches = 0;
+    const out = knowing('thief', s);
+    expect(out.act(s)).toBe(RIGHT);
+    expect(out.reason).toBe('flee');
+    const home = knowing('thief', s);
+    home.goingHome = true;
+    expect(home.act(s)).toBe(LEFT); // stepping aside would only mean passing them again
+  });
+
   it('dwarf digs when it is shorter than walking round; the healer walks round', () => {
     const s = raidFrom(['>#@', '.#.', '.#.', '...']);
     s.torches = 0;

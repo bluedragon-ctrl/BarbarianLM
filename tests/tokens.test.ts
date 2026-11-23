@@ -22,8 +22,8 @@ function expectBuckets(f: (x: number) => number, ranges: [number, number][]) {
 
 describe('sizes', () => {
   it('pinned 43, view 475, pair 485', () => {
-    expect(PINNED_SIZE).toBe(43);
-    expect(PINNED_GROUPS.map(([, n]) => n)).toEqual([5, 3, 3, 4, 4, 3, 5, 4, 12]);
+    expect(PINNED_SIZE).toBe(44);
+    expect(PINNED_GROUPS.map(([, n]) => n)).toEqual([5, 3, 3, 4, 4, 3, 5, 5, 12]);
     expect(VIEW_KINDS).toBe(17);
     expect(CELL_SIZE).toBe(19);
     expect(VIEW_INPUTS).toBe(475);
@@ -31,16 +31,16 @@ describe('sizes', () => {
     expect(ACTIONS).toBe(9);
   });
 
-  it('inputs 1,003 / 1,973 / 3,428 for short, medium and long memory', () => {
+  it('inputs 1,004 / 1,974 / 3,429 for short, medium and long memory', () => {
     expect(MEMORY_SIZES).toEqual({ short: 1, medium: 3, long: 6 });
-    expect(inputSize(MEMORY_SIZES.short)).toBe(1003);
-    expect(inputSize(MEMORY_SIZES.medium)).toBe(1973);
-    expect(inputSize(MEMORY_SIZES.long)).toBe(3428);
+    expect(inputSize(MEMORY_SIZES.short)).toBe(1004);
+    expect(inputSize(MEMORY_SIZES.medium)).toBe(1974);
+    expect(inputSize(MEMORY_SIZES.long)).toBe(3429);
   });
 
   it('the save version goes with this layout: bump it when a size changes', () => {
     const layout = [PINNED_SIZE, VIEW_INPUTS, PAIR_SIZE, ACTIONS, ...Object.values(MEMORY_SIZES)];
-    expect({ SAVE_VERSION, layout }).toEqual({ SAVE_VERSION: 2, layout: [43, 475, 485, 9, 1, 3, 6] });
+    expect({ SAVE_VERSION, layout }).toEqual({ SAVE_VERSION: 3, layout: [44, 475, 485, 9, 1, 3, 6] });
   });
 });
 
@@ -51,15 +51,16 @@ describe('buckets, every edge', () => {
   it('potions and torches: 0, 1, 2, 3', () => expectBuckets(packBucket, [[0, 0], [1, 1], [2, 2], [3, 3]]));
   it('torch: off, low 1–3, lit 4+', () => expectBuckets(torchBucket, [[0, 0], [1, 3], [4, RULES.torchTurns]]));
   it('gold: 0, 1–5, 6–15, 16–30, 31+', () => expectBuckets(goldBucket, [[0, 0], [1, 5], [6, 15], [16, 30], [31, 999]]));
-  it('time left: < 20, 20–49, 50–99, 100+', () => expectBuckets(timeBucket, [[0, 19], [20, 49], [50, 99], [100, RULES.timeLimit]]));
+  it('time left: < 20, 20–49, 50–99, 100–149, 150+', () =>
+    expectBuckets(timeBucket, [[0, 19], [20, 49], [50, 99], [100, 149], [150, RULES.timeLimit]]));
   it('stairs distance: near < 10, far 10–19, very far 20+', () => expectBuckets(distanceBucket, [[1, 9], [10, 19], [20, 99]]));
 
-  it('a fresh raid starts at HP 11–15, max up to 14, attack 2, 2 potions, 1 torch, off, no gold, 100+ time', () => {
+  it('a fresh raid starts at HP 11–15, max up to 14, attack 2, 2 potions, 1 torch, off, no gold, 150+ time', () => {
     const s = newRaid(generateDungeon('TOKENS'));
     const p = pinnedIndices(s);
     expect(p.slice(0, 8)).toEqual([
       PINNED_AT.hp + 3, PINNED_AT.maxHp, PINNED_AT.attack, PINNED_AT.potions + 2, PINNED_AT.torches + 1,
-      PINNED_AT.torch, PINNED_AT.gold, PINNED_AT.time + 3,
+      PINNED_AT.torch, PINNED_AT.gold, PINNED_AT.time + 4,
     ]);
     expect(p.slice(8)).toEqual([PINNED_AT.compass + HERE]); // on the stairs: no distance
   });

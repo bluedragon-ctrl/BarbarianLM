@@ -47,7 +47,7 @@ A test checks the promise from CLAUDE.md: with events on and off, the same raid 
 
 - Buckets for the pinned stats, stairs compass with "here", the 5 × 5 view (19 numbers a cell), memory of 1 / 3 / 6 pairs.
 - `SAVE_VERSION` lives here or in `storage.ts` from the start.
-- **Tests:** sizes 43 / 475 / 484 and 1,002 / 1,970 / 3,422 (485 and 1,003 / 1,973 / 3,428 since step 5 added Wait); every bucket edge; the view with a monster on an item.
+- **Tests:** sizes 43 / 475 / 484 and 1,002 / 1,970 / 3,422 (485 and 1,003 / 1,973 / 3,428 since step 5 added Wait; 44 pinned and 1,004 / 1,974 / 3,429 since the 200-turn day added a time bucket); every bucket edge; the view with a monster on an item.
 
 ### 4. Model — `src/model.ts`
 

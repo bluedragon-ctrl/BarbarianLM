@@ -233,9 +233,9 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
 | Torches: 0, 1, 2, 3 | 4 |
 | Torch: off, burning low (≤ 3 turns), lit | 3 |
 | Gold: 0, 1–5, 6–15, 16–30, 31+ | 5 |
-| Time left: < 20, 20–49, 50–99, 100+ | 4 |
+| Time left: < 20, 20–49, 50–99, 100–149, 150+ (the last added with the 200-turn day) | 5 |
 | Stairs compass: 8 directions or here (on the stairs), plus near / far / very far (none when here) | 12 |
-| **Pinned, total** | **43** |
+| **Pinned, total** | **44** |
 | View now: 25 cells × 19 (one-hot over 17 kinds: 13 tiles and 4 monsters, plus the wounded and rich flags) | 475 |
 | Each remembered pair: present flag + view + action | 1 + 475 + 9 = 485 |
 
@@ -257,9 +257,9 @@ One hidden layer, 48 units, tanh, softmax over 9 actions (as in Karkulka, hand-w
 
 | Memory | Remembered pairs | Inputs | Parameters | Active inputs (mean) |
 | --- | --- | --- | --- | --- |
-| Short | 1 | 1,003 | 48,633 | 62 |
-| Medium (default) | 3 | 1,973 | 95,193 | 113 |
-| Long | 6 | 3,428 | 165,033 | 187 |
+| Short | 1 | 1,004 | 48,681 | 62 |
+| Medium (default) | 3 | 1,974 | 95,241 | 113 |
+| Long | 6 | 3,429 | 165,081 | 187 |
 
 Parameters are inputs × 48 + 48 + 48 × 9 + 9. Active inputs are measured on random walks through real dungeons (`npm run measure:model`).
 
@@ -291,7 +291,7 @@ The HP weight grows as HP falls (weight × max HP ÷ HP), and a tile whose own h
 
 1. Heading home and on the stairs: Leave.
 2. Goblin in disguise, a troll in sight: step towards it (it fights it, and nothing else matters).
-3. Next to a slime or troll it will not fight: step to the free tile next to him where the fewest hits land.
+3. Next to a slime or troll it will not fight, and not on the way home: step to the free tile next to him where the fewest hits land.
 4. Its potion rule (below): Drink.
 5. Next to a monster it will fight: strike the one it beats in the fewest blows.
 6. A mobile monster it would fight, two steps away and coming: **Wait**, so it steps next to him and he strikes first (not twice in a row; the warrior never waits).
@@ -305,7 +305,7 @@ A fight is one it **may** have if the damage (`fightDamage`: the hits above, plu
 | --- | --- | --- |
 | Old warrior (reckless) | Nearest gold, monsters' gold included; fights anything in the way he can beat counting his potions; likes strength; drinks only when the next hit would knock him out; leaves when time is just enough to walk back | HP weight 1; never waits; drinks when a monster next to him or two steps away hits as hard as his HP; strength and vigour count 10 turns nearer; 5 turns to spare; heads home at ¼ HP with no potions |
 | Healer (careful) | Fights only what he can beat with HP to spare; drinks below half HP; lights a torch when entering an unseen room; leaves when HP is low or with time to spare | HP weight 2; a fight must leave ⅓ of max HP, potions not counted; waits; torch when it shows 5+ unseen tiles; 20 turns to spare; heads home at ½ HP with no potions |
-| Thief (sneaky) | Gold and items without a fight: avoids monsters, goes out of his way for potions, torches, strength and vigour no monster guards; lights torches often to see danger early | As the healer, but HP weight 10; never plans through a monster (strikes back only at a mobile one next to him); gold or an item within 2 tiles of a slime or troll, or with a monster on or next to it, is guarded; potions, torches, strength and vigour count 10 turns nearer; torch when it shows 2+ unseen tiles |
+| Thief (sneaky, the safest) | Gold and items without a fight: avoids monsters, goes out of his way for potions, torches, strength and vigour no monster guards; lights torches often to see danger early | As the healer, but HP weight 10; never plans through a monster (strikes back only at a mobile one next to him); gold or an item within 2 tiles of a slime or troll, or with a monster on or next to it, is guarded; potions, torches, strength and vigour count 10 turns nearer; torch when it shows 2+ unseen tiles |
 | Dwarf (digger) | Like the healer, but digs through a wall when digging (at his real attack) costs fewer turns than walking round | As the healer, digging in the planner |
 | Dwarf with his own pickaxe | Plans as if every wall falls in one blow; the barbarian cannot, so copying him wastes turns | As the dwarf, a wall costing 1 blow. His lessons are played with his pickaxe (`step(…, { pickaxe: true })`): there every wall does fall in one blow |
 | Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it | The warrior's rules, plus rule 2 |
@@ -316,15 +316,15 @@ A fight is one it **may** have if the damage (`fightDamage`: the hits above, plu
 | Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost | Beaten | Strength | Vigour | Trolls beaten |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Old warrior | 62.5 | 88% | 0% | 11% | 1% | 161 | 2.2 | 2.6 | 0 | 0 | 0 | 37.2 | 6.4 | 1.47 | 1.54 | 0.40 |
-| Healer | 61.2 | 98% | 0% | 2% | 0% | 170 | 2.1 | 2.6 | 0 | 0 | 2.0 | 26.9 | 6.1 | 1.55 | 1.64 | 0.10 |
-| Thief | 47.0 | 96% | 1% | 3% | 0% | 172 | 0.9 | 2.7 | 0 | 0 | 1.9 | 17.1 | 5.2 | 1.38 | 1.59 | 0 |
+| Healer | 61.8 | 99% | 0% | 1% | 0% | 170 | 2.1 | 2.6 | 0 | 0 | 2.0 | 26.8 | 6.1 | 1.55 | 1.64 | 0.10 |
+| Thief | 48.4 | 99% | 1% | 0% | 0% | 173 | 0.9 | 2.7 | 0 | 0 | 1.9 | 16.6 | 5.2 | 1.39 | 1.59 | 0 |
 | Dwarf | 65.7 | 100% | 0% | 0% | 0% | 174 | 1.7 | 2.6 | 8.2 | 4.2 | 2.0 | 24.2 | 6.1 | 1.59 | 1.63 | 0.16 |
 | Dwarf, own pickaxe | 67.7 | 100% | 0% | 0% | 0% | 175 | 1.7 | 2.6 | 6.5 | 6.5 | 2.0 | 24.3 | 6.2 | 1.60 | 1.66 | 0.18 |
 | … copied | 65.3 | 100% | 0% | 0% | 0% | 176 | 1.6 | 2.5 | 12.9 | 6.1 | 2.0 | 23.3 | 6.0 | 1.58 | 1.64 | 0.15 |
 | Goblin in disguise | 37.3 | 46% | 0% | 53% | 1% | 139 | 0.9 | 2.6 | 0 | 0 | 0 | 31.3 | 6.0 | 1.41 | 1.49 | 0.28 |
-| Champion | 60.3 | 98% | 0% | 2% | 0% | 159 | 2.8 | 2.6 | 0 | 0 | 1.9 | 33.6 | 6.3 | 1.49 | 1.53 | 0.37 |
+| Champion | 60.4 | 98% | 0% | 2% | 0% | 159 | 2.8 | 2.6 | 0 | 0 | 1.9 | 33.5 | 6.3 | 1.49 | 1.53 | 0.37 |
 
-The shape holds, thinly in places: the healer leaves almost always; the warrior earns most of the non-diggers (1.3 gold more than the healer) and is knocked out 5 times as often; the thief earns least of the honest teachers and loses least HP, but now leaves about as often as the healer; the dwarf beats the healer; copied, the pickaxe dwarf strikes 12.9 blows for 6.1 walls; the goblin in disguise is knocked out in 65% of the raids where a troll comes in sight (8% for the warrior). The champion earns about what the healer does, as safely, and beats almost four times as many trolls (0.37 a raid, the warrior 0.40 at five times the knock-outs).
+The shape holds, thinly in places: the healer leaves almost always; the warrior earns most of the non-diggers (0.7 gold more than the healer) and is knocked out 11 times as often; the thief earns least of the honest teachers but is the safest, never knocked out and losing least HP; the dwarf beats the healer; copied, the pickaxe dwarf strikes 12.9 blows for 6.1 walls; the goblin in disguise is knocked out in 65% of the raids where a troll comes in sight (8% for the warrior). The champion earns about what the healer does, as safely, and beats almost four times as many trolls (0.37 a raid, the warrior 0.40 at five times the knock-outs).
 
 **Retuned with the buffs** (this round). The second strength and vigour made a longer, riskier trip for both worth weighing; the teachers were reviewed to give each its own aim:
 
@@ -332,7 +332,9 @@ The shape holds, thinly in places: the healer leaves almost always; the warrior 
 - **So the day is 200 turns** (from 150). Each teacher now takes about 1.5 of each, gold out rises by 10–20, and trolls beaten go up: the warrior 0.18 → 0.40, the champion 0.14 → 0.37. At 250 turns the healer (70.8) and dwarf (79.0) overtook the warrior (66.5): there his risks stop paying, so 200.
 - **Chases end** (see Monsters). Ending them after 3, 5 or 8 steps measured the same for every teacher as chases that never end.
 - **A thief that slips away** from a rat or goblin instead of striking back did much worse: 12–27 gold where striking back gives 47, with more HP lost and up to 13% knocked out. A rat falls in one blow without hitting back, and a goblin costs 2 HP; running from them only invites hits and blocks corridors. Dropped.
-- **At 150 turns** (same code, before the time change): warrior 50.4 (7% knocked out, 0.18 trolls), healer 44.2, thief 36.7, dwarf 46.4, pickaxe dwarf 47.6 (copied 46.0), goblin 35.8, champion 47.9 (1% knocked out, 0.14 trolls).
+- **Fixed: a flee loop on the way home.** Rule 3 (step away from a slime or troll he will not fight) no longer applies on the way home. Going home past a slime, a teacher stepped aside, then the way home stepped back next to it, and again, until he was knocked out: most of the thief's and healer's knock-outs. The way home is planned with the hits counted, so now he just takes it. Thief 47.0 → 48.4 gold, knocked out 3% → 0%; healer 61.2 → 61.8, 2% → 1%.
+- **The thief as the safest teacher:** after the fix he already is, so his rules stay. More time to spare (25–35 turns) or fights that must leave half his HP only cost gold (42–46) with no fewer knock-outs.
+- **At 150 turns** (same code, before the time change and the flee fix): warrior 50.4 (7% knocked out, 0.18 trolls), healer 44.2, thief 36.7, dwarf 46.4, pickaxe dwarf 47.6 (copied 46.0), goblin 35.8, champion 47.9 (1% knocked out, 0.14 trolls).
 
 **With one strength and one vigour** (step 5, before the second of each): warrior 43.3 gold (11% knocked out, 0.04 trolls beaten a raid), healer 41.4, thief 37.4, dwarf 44.0, pickaxe dwarf 45.4 (copied 43.6), goblin 28.0 (knocked out in 97% of the raids with a troll in sight). The warrior's lead over the healer was thin (1.9 gold); the second strength and vigour widened it to 5.9 at 150 turns (before the teachers were retuned), since buffs help most the one who fights.
 
@@ -510,12 +512,11 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
 - The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless. (The step 5 warrior counts a rich monster's gold like any other.)
-- **Risk against reward in how the teachers are shown.** Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless. But ranking teachers by it makes the thief look only worse, and at 200 turns he no longer leaves more often than the healer (96% against 98%), only loses less HP. Two cheap ways to give each style its place: show "left with gold" next to gold out wherever teachers are compared (the warrior's 62.5 comes with 1 raid in 9 knocked out), and tune the thief to be the safest teacher (about 99–100% left at lower gold: earlier home, more time to spare). A risk-averse judge (gold out with a penalty for a knock-out) would be the bigger step.
-- With 200 turns, the time-left bucket "100+" covers the first half of the day. The student only needs to know when to head home, which the lower buckets show, and the noisy lesson numbers do not show that it hurts. A "150+" bucket would change the input size (and need a save-version bump) if it turns out to.
+- **Risk against reward** (settled for now). Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless, but ranking teachers by it alone hides the risk each takes. Wherever teachers or students are compared (the teacher picker, the many-raids counts, step 8's UI), show the share that left with gold next to gold out, e.g. "warrior: 62 gold, knocked out 1 raid in 9"; "thief: 48 gold, never knocked out". The thief is now the safest teacher. A risk-averse judge (gold out with a penalty for a knock-out) is the bigger step, left for later.
 - Teachers still find only about 1.5 of the 2 strength and 2 vigour at 200 turns; the rest are mostly never seen. If the champion should reliably gather all four, the buffs could sit nearer, or the generator could put the deeper ones on the main way rather than in side rooms.
 - Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
 - **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
 - Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
 - The monsters-beaten judge picks only a few more fights, even from the champion's lessons (4.9 to 5.8 beaten in BCDEFG; 4.7 to 5.1 from the healer's). Starting from lessons with fights won helps a little; paying per blow struck is still untried.
-- After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,033 parameters. The UI may need to suggest more lessons for the long memory.
+- After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,081 parameters. The UI may need to suggest more lessons for the long memory.

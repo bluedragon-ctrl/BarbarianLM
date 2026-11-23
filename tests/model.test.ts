@@ -64,11 +64,11 @@ function checkGradient(m: Model, loss: () => number, g: ReturnType<typeof zeroGr
 }
 
 describe('sizes and start', () => {
-  it('parameter counts: 48,633 / 95,193 / 165,033', () => {
+  it('parameter counts: 48,681 / 95,241 / 165,081', () => {
     const counts = Object.values(MEMORY_SIZES).map((pairs) => parameterCount(createModel(inputSize(pairs), 0)));
-    expect(counts).toEqual([48633, 95193, 165033]);
+    expect(counts).toEqual([48681, 95241, 165081]);
     const m = createModel(inputSize(MEMORY_SIZES.medium), 0);
-    expect(m.w1.length + m.b1.length + m.w2.length + m.b2.length).toBe(95193);
+    expect(m.w1.length + m.b1.length + m.w2.length + m.b2.length).toBe(95241);
     expect(m.nH).toBe(HIDDEN);
     expect(N_OUT).toBe(ACTIONS);
   });
