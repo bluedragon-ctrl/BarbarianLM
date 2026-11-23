@@ -311,21 +311,30 @@ A fight is one it **may** have if the damage (`fightDamage`: the hits above, plu
 | Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it | The warrior's rules, plus rule 2 |
 | Champion (gets stronger first) | Goes out of his way for strength and vigour; careful like the healer until buffed, then counts his potions in a fight and hunts monsters for their gold, slimes and trolls included | As the healer, but strength and vigour count 20 turns nearer; once buffed, potions count as HP in a fight and monsters' gold as gold; a fight must leave 0.1 of max HP; 10 turns to spare |
 
-**Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack; with two strength and two vigour in every dungeon, so the step 5 numbers with one of each follow the table):
+**Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack; 200 turns, two strength and two vigour in every dungeon, chases that end after 5 steps):
 
-| Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost | Strength | Vigour | Trolls beaten |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Old warrior | 50.1 | 91% | 0% | 8% | 2% | 134 | 1.5 | 2.5 | 0 | 0 | 0 | 28.4 | 1.25 | 1.39 | 0.19 |
-| Healer | 44.2 | 99% | 0% | 1% | 0% | 128 | 1.1 | 2.4 | 0 | 0 | 1.8 | 17.4 | 1.14 | 1.31 | 0.02 |
-| Thief | 37.0 | 99% | 1% | 0% | 0% | 127 | 0.5 | 2.4 | 0 | 0 | 1.8 | 11.1 | 1.01 | 1.26 | 0 |
-| Dwarf | 46.4 | 99% | 0% | 1% | 0% | 130 | 1.0 | 2.3 | 5.8 | 2.8 | 1.7 | 16.2 | 1.19 | 1.25 | 0.03 |
-| Dwarf, own pickaxe | 47.6 | 99% | 0% | 1% | 0% | 129 | 1.0 | 2.3 | 4.8 | 4.8 | 1.8 | 16.0 | 1.19 | 1.26 | 0.03 |
-| … copied | 46.0 | 100% | 0% | 0% | 0% | 131 | 0.9 | 2.3 | 9.8 | 4.4 | 1.7 | 15.6 | 1.14 | 1.23 | 0.03 |
-| Goblin in disguise | 35.4 | 61% | 0% | 38% | 1% | 119 | 0.6 | 2.5 | 0 | 0 | 0 | 24.9 | 1.21 | 1.36 | 0.12 |
+| Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost | Beaten | Strength | Vigour | Trolls beaten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Old warrior | 62.5 | 88% | 0% | 11% | 1% | 161 | 2.2 | 2.6 | 0 | 0 | 0 | 37.2 | 6.4 | 1.47 | 1.54 | 0.40 |
+| Healer | 61.2 | 98% | 0% | 2% | 0% | 170 | 2.1 | 2.6 | 0 | 0 | 2.0 | 26.9 | 6.1 | 1.55 | 1.64 | 0.10 |
+| Thief | 47.0 | 96% | 1% | 3% | 0% | 172 | 0.9 | 2.7 | 0 | 0 | 1.9 | 17.1 | 5.2 | 1.38 | 1.59 | 0 |
+| Dwarf | 65.7 | 100% | 0% | 0% | 0% | 174 | 1.7 | 2.6 | 8.2 | 4.2 | 2.0 | 24.2 | 6.1 | 1.59 | 1.63 | 0.16 |
+| Dwarf, own pickaxe | 67.7 | 100% | 0% | 0% | 0% | 175 | 1.7 | 2.6 | 6.5 | 6.5 | 2.0 | 24.3 | 6.2 | 1.60 | 1.66 | 0.18 |
+| … copied | 65.3 | 100% | 0% | 0% | 0% | 176 | 1.6 | 2.5 | 12.9 | 6.1 | 2.0 | 23.3 | 6.0 | 1.58 | 1.64 | 0.15 |
+| Goblin in disguise | 37.3 | 46% | 0% | 53% | 1% | 139 | 0.9 | 2.6 | 0 | 0 | 0 | 31.3 | 6.0 | 1.41 | 1.49 | 0.28 |
+| Champion | 60.3 | 98% | 0% | 2% | 0% | 159 | 2.8 | 2.6 | 0 | 0 | 1.9 | 33.6 | 6.3 | 1.49 | 1.53 | 0.37 |
 
-The shape holds: the healer leaves almost always; the warrior earns most (5.9 gold more than the healer) and is knocked out 8 times as often; the thief earns less but safely; the dwarf beats the healer; copied, the pickaxe dwarf strikes 9.8 blows for 4.4 walls where his own pickaxe needs one each; the goblin in disguise is knocked out in 73% of the raids where a troll comes in sight (7% for the warrior). No teacher seeks strength or vigour yet (they count as a small pile of gold), so each takes about 1.1–1.4 of the 2 of each when passing by.
+The shape holds, thinly in places: the healer leaves almost always; the warrior earns most of the non-diggers (1.3 gold more than the healer) and is knocked out 5 times as often; the thief earns least of the honest teachers and loses least HP, but now leaves about as often as the healer; the dwarf beats the healer; copied, the pickaxe dwarf strikes 12.9 blows for 6.1 walls; the goblin in disguise is knocked out in 65% of the raids where a troll comes in sight (8% for the warrior). The champion earns about what the healer does, as safely, and beats almost four times as many trolls (0.37 a raid, the warrior 0.40 at five times the knock-outs).
 
-**With one strength and one vigour** (step 5, before the second of each): warrior 43.3 gold (11% knocked out, 0.04 trolls beaten a raid), healer 41.4, thief 37.4, dwarf 44.0, pickaxe dwarf 45.4 (copied 43.6), goblin 28.0 (knocked out in 97% of the raids with a troll in sight). The warrior's lead over the healer was thin (1.9 gold); the second strength and vigour widened it to 5.9, since buffs help most the one who fights.
+**Retuned with the buffs** (this round). The second strength and vigour made a longer, riskier trip for both worth weighing; the teachers were reviewed to give each its own aim:
+
+- **Seeking the buffs barely works at 150 turns.** An item can now count as some turns nearer than it is (the thief's 10, the warrior's 10 for strength and vigour, the champion's 20), but with 150 turns each teacher still took about 1.2 strength and 1.3 vigour whatever the bonus. A third of the buffs were never even seen: the unseen ones lie about 19 steps from the stairs, and the teachers ran out of time exploring the nearer rooms. Heading for deeper rooms first, or leaving far gold for later, did not help either.
+- **So the day is 200 turns** (from 150). Each teacher now takes about 1.5 of each, gold out rises by 10–20, and trolls beaten go up: the warrior 0.18 → 0.40, the champion 0.14 → 0.37. At 250 turns the healer (70.8) and dwarf (79.0) overtook the warrior (66.5): there his risks stop paying, so 200.
+- **Chases end** (see Monsters). Ending them after 3, 5 or 8 steps measured the same for every teacher as chases that never end.
+- **A thief that slips away** from a rat or goblin instead of striking back did much worse: 12–27 gold where striking back gives 47, with more HP lost and up to 13% knocked out. A rat falls in one blow without hitting back, and a goblin costs 2 HP; running from them only invites hits and blocks corridors. Dropped.
+- **At 150 turns** (same code, before the time change): warrior 50.4 (7% knocked out, 0.18 trolls), healer 44.2, thief 36.7, dwarf 46.4, pickaxe dwarf 47.6 (copied 46.0), goblin 35.8, champion 47.9 (1% knocked out, 0.14 trolls).
+
+**With one strength and one vigour** (step 5, before the second of each): warrior 43.3 gold (11% knocked out, 0.04 trolls beaten a raid), healer 41.4, thief 37.4, dwarf 44.0, pickaxe dwarf 45.4 (copied 43.6), goblin 28.0 (knocked out in 97% of the raids with a troll in sight). The warrior's lead over the healer was thin (1.9 gold); the second strength and vigour widened it to 5.9 at 150 turns (before the teachers were retuned), since buffs help most the one who fights.
 
 **Wait** (the open question, settled in step 5): a monster that steps next to him does not hit that turn, so whoever closes the gap is hit first. Every step he or a chasing monster takes changes the distance between them by one, so from two steps away no move of his can make the monster close the gap: only standing still does. Without Wait, the only ways to stand still were wasted actions, which "Block impossible actions" takes away. The careful teachers wait about twice a raid; with Wait the healer loses 1.8 HP less per raid and carries out 1.2 more gold (40.2 without), the dwarf 1.2 HP less and 0.6 more gold.
 
@@ -393,6 +402,18 @@ Policy gradient on his own trips, as in Karkulka. Judges:
 | … monsters beaten | 0.3 | 3% | 44% | **54%** | 17.7 | 2.9 |
 
 **In one dungeon** the gold-out judge does what fine-tuning should: gold out rises from 23.4 to 26.5 in BCDEFG and from 28.3 to 35.4 in QWERTY, and he leaves more often. With the earlier dungeons (one strength, one vigour) the healer's student started lower in BCDEFG, and there practice took him from 8.6 to 22. The gold-picked-up judge makes him pick up a little more, but he is locked in five times as often and carries out less (BCDEFG). The monsters-beaten judge does the same damage with hardly any more fights: 4.7 to 4.8 beaten in BCDEFG, 6.1 to 6.4 in QWERTY. Before the dungeon change, a flat 0.2 a monster, 0.1 per HP, and HP to the power 1.5 all measured the same.
+
+**Practice from other teachers' lessons** (`--practice-from NAME`; 200 turns, the retuned teachers, BCDEFG, 1,000 lessons then 3,000 practice raids, medium memory, 100 test raids):
+
+| Lessons from | Before: gold out | left / k.o. / locked | beaten | Gold out judge: gold out | left | Monsters-beaten judge: gold out | k.o. / locked | beaten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Healer | 7.0 | 18% / 19% / 63% | 4.7 | 28.3 | 75% | 12.8 | 28% / 45% | 5.1 |
+| Champion | 13.9 | 40% / 11% / 49% | 4.9 | **28.7** | 87% | 20.0 | 33% / 15% | **5.8** |
+| Old warrior | 3.4 | 11% / 79% / 10% | 4.6 | 19.1 | 70% | 2.0 | 70% / 26% | 5.2 |
+
+The monsters-beaten judge now picks more fights when practice starts from the champion's lessons: 4.9 to 5.8 beaten (the healer's, 4.7 to 5.1). The champion's student fights once his lessons show the fights won, as hoped, though the gain is still small, and being knocked out triples. The warrior's student is knocked out in most raids before practice and stays that way. With the gold-out judge, the champion's lessons end best: 28.7 gold, 87% left.
+
+**Lessons in one dungeon are noisy.** In BCDEFG, after 1,000 lessons (medium memory): at 200 turns the healer's student carries out 7.0 gold (63% locked in), the champion's 13.9, the warrior's 3.4, the thief's 10.6; at 150 turns, on the same code, the healer's 18.1, the champion's 8.4 (69% locked in), the warrior's 10.6. In QWERTY at 200 turns: healer 12.4, champion 5.5 (15.2 with the block on). Which teacher does best changes with the dungeon and the day length, and a lone run says little; the step 6 table above (healer 23.4 in BCDEFG) was at 150 turns with the earlier teachers.
 
 **Over new dungeons**, 3,000 raids are not enough for gold out to rise. The two bad judges break him: he is locked in about half the time and carries out almost nothing.
 
@@ -489,10 +510,12 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
 - The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless. (The step 5 warrior counts a rich monster's gold like any other.)
-- **Teachers to review with the extra buffs:** each should have its own aim. The thief: gold and items without a fight wherever possible. The warrior (the reckless barbarian): fights. Perhaps a teacher that buffs up first (goes for strength and vigour, then takes on slimes and trolls), whose lessons would give the monsters-beaten judge wins to reinforce. Today no teacher seeks the buffs; all count them as a small pile of gold.
+- **Risk against reward in how the teachers are shown.** Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless. But ranking teachers by it makes the thief look only worse, and at 200 turns he no longer leaves more often than the healer (96% against 98%), only loses less HP. Two cheap ways to give each style its place: show "left with gold" next to gold out wherever teachers are compared (the warrior's 62.5 comes with 1 raid in 9 knocked out), and tune the thief to be the safest teacher (about 99–100% left at lower gold: earlier home, more time to spare). A risk-averse judge (gold out with a penalty for a knock-out) would be the bigger step.
+- With 200 turns, the time-left bucket "100+" covers the first half of the day. The student only needs to know when to head home, which the lower buckets show, and the noisy lesson numbers do not show that it hurts. A "150+" bucket would change the input size (and need a save-version bump) if it turns out to.
+- Teachers still find only about 1.5 of the 2 strength and 2 vigour at 200 turns; the rest are mostly never seen. If the champion should reliably gather all four, the buffs could sit nearer, or the generator could put the deeper ones on the main way rather than in side rooms.
 - Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
 - **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
 - Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
-- The monsters-beaten judge hardly picks more fights, even now that tougher monsters pay more (tuned in step 6, from a flat 0.2). After the healer's lessons he already beats most monsters he can, and the rest (slimes, trolls) knock him out first. He mostly loses the way home instead. Perhaps practise from the warrior's lessons, or pay per blow struck.
+- The monsters-beaten judge picks only a few more fights, even from the champion's lessons (4.9 to 5.8 beaten in BCDEFG; 4.7 to 5.1 from the healer's). Starting from lessons with fights won helps a little; paying per blow struck is still untried.
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,033 parameters. The UI may need to suggest more lessons for the long memory.
