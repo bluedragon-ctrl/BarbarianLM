@@ -8,8 +8,9 @@
  * Options: --memory short|medium|long (only that size), --teachers a,b (only those), --skip-lessons,
  * --skip-practice, --temperature T (test raids' boldness, default the training tests'), --dungeon CODE (all in one
  * dungeon), --practice-from NAME (the teacher whose lessons practice starts from, default the healer),
- * --judges a,b (only those), --training '{json}' and --loop '{json}' (other training numbers).
+ * --judges a,b (only those), --rules '{json}' (other game numbers), --training '{json}' and --loop '{json}' (other training numbers).
  */
+import { RULES } from '../src/world';
 import { createModel, type Model } from '../src/model';
 import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
 import { mulberry32 } from '../src/rng';
@@ -33,6 +34,8 @@ export function main(args: string[]) {
   // Try other training numbers: --training '{"sgdLearningRate":0.2}', --loop '{"practiceTemperature":1}'.
   if (opt(args, '--training')) Object.assign(TRAINING as Record<string, number>, JSON.parse(opt(args, '--training')!));
   if (opt(args, '--loop')) Object.assign(LOOP as Record<string, number>, JSON.parse(opt(args, '--loop')!));
+  // ... and game numbers: --rules '{"timeLimit":150}'.
+  if (opt(args, '--rules')) Object.assign(RULES as Record<string, number>, JSON.parse(opt(args, '--rules')!));
   const pos = args.filter((a, k) => !a.startsWith('--') && !args[k - 1]?.startsWith('--'));
   const lessons = Number(pos[0] ?? 300);
   const practice = Number(pos[1] ?? 1000);
