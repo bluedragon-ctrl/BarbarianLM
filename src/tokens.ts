@@ -1,7 +1,7 @@
 /**
  * The tokens: what the model reads. Everything is one-hot, laid out as in the design's context
  *
- *   pinned (43) | [view][action] … oldest to newest (484 each) | view now (475) → next action
+ *   pinned (43) | [view][action] … oldest to newest (485 each) | view now (475) → next action
  *
  * The pinned stats come in buckets; the view is 25 cells of 19 numbers; each remembered pair is a present flag,
  * a view and the action he took on it. Since every input is 0 or 1, an input is given as the list of the indices
@@ -15,7 +15,7 @@ import { ACTIONS, type Action, type RaidState } from './world';
  * Bump when the input or output layout changes (tile kinds, monster flags, pinned tokens, buckets, actions, memory
  * sizes): saved models from an older layout no longer fit.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 // ── Buckets ─────────────────────────────────────────────────────────────────
 
@@ -28,8 +28,8 @@ function bucket(x: number, from: readonly number[]): number {
 
 /** HP: 1–3, 4–6, 7–10, 11–15, 16+ (0 never reaches the model: the trip has ended). */
 export const hpBucket = (hp: number): number => bucket(hp, [4, 7, 11, 16]);
-/** Max HP: up to 12, 13–19, 20+. */
-export const maxHpBucket = (maxHp: number): number => bucket(maxHp, [13, 20]);
+/** Max HP: up to 14 (the start), 15–19 (after vigour), 20+. */
+export const maxHpBucket = (maxHp: number): number => bucket(maxHp, [15, 20]);
 /** Attack: 2, 3, 4+. */
 export const attackBucket = (attack: number): number => bucket(attack, [3, 4]);
 /** Potions, torches: 0, 1, 2, 3. */

@@ -3,7 +3,7 @@ import { generateDungeon } from '../src/dungeon';
 import { rngFrom, type Rng } from '../src/rng';
 import { FLOOR, GOLD, HEAP_FROM, POTION, SHOWN, TORCH, WALL, WALL_HP, shownKind } from '../src/tiles';
 import {
-  ACTIONS, DRINK, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, RULES, UP, allowedActions, goldOut, newRaid, step,
+  ACTIONS, DRINK, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, RULES, UP, WAIT, allowedActions, goldOut, newRaid, step,
   type Action,
 } from '../src/world';
 import { cell, raidFrom } from './maps';
@@ -17,7 +17,8 @@ describe('a new raid', () => {
     const before = JSON.stringify(d);
     const s = newRaid(d);
     expect(s.pos).toBe(d.stairs);
-    expect([s.hp, s.maxHp, s.attack, s.potions, s.torches, s.torchLeft, s.gold, s.timeLeft]).toEqual([12, 12, 2, 1, 1, 0, 0, 150]);
+    expect([s.hp, s.maxHp, s.attack, s.potions, s.torches, s.torchLeft, s.gold, s.timeLeft]).toEqual([14, 14, 2, 2, 1, 0, 0, 150]);
+    expect([RULES.startHp, RULES.startAttack, RULES.startPotions, RULES.startTorches]).toEqual([14, 2, 2, 1]);
     const rng = rngFrom('ABC123|1|monsters');
     for (let k = 0; k < 40 && !s.ended; k++) step(s, (k % 4) as Action, rng);
     s.map.tiles[0] = FLOOR;
@@ -273,6 +274,25 @@ describe('block impossible actions', () => {
       const wasted = step(s, a, rng).did === 'nothing';
       expect(wasted).toBe(!allowed[a]);
     }
+  });
+});
+
+describe('wait and the pickaxe', () => {
+  it('Wait does nothing but take the turn, and is never blocked', () => {
+    const s = raidFrom(['@....g']);
+    s.torchLeft = 3;
+    const r = step(s, WAIT, noRng);
+    expect([r.did, s.pos, s.timeLeft, s.torchLeft]).toEqual(['wait', cell(s, 0, 0), RULES.timeLimit - 1, 2]);
+    expect(s.monsters[0].pos).toBe(cell(s, 4, 0)); // lit: the goblin noticed him and came
+    expect(allowedActions(s)[WAIT]).toBe(true);
+  });
+
+  it('with the pickaxe a wall falls in one blow', () => {
+    const s = raidFrom(['@#']);
+    const r = step(s, RIGHT, noRng, { pickaxe: true });
+    expect([r.did, r.dugThrough, s.map.tiles[cell(s, 1, 0)]]).toEqual(['dig', true, FLOOR]);
+    const t = raidFrom(['@#']);
+    expect(step(t, RIGHT, noRng).dugThrough).toBe(false);
   });
 });
 

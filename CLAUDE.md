@@ -16,6 +16,7 @@ npm run dungeon -- CODE        # print a dungeon as text
 npm run measure:dungeons -- N  # generator numbers over N codes (default 1,000)
 npm run measure:compass -- N   # stairs-compass distances over N codes
 npm run measure:model -- N     # model speed per example at each memory size
+npm run measure:teachers -- N  # each teacher over N codes (--no-wait, --try 'name:{json}', --rules '{json}')
 ```
 
 Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
@@ -32,10 +33,11 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path, wander |
 | `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, `SAVE_VERSION` |
 | `src/model.ts` | The network: sparse forward, softmax with temperature, masking, imitation and policy-gradient gradients, lazy Adam and SGD, saves |
+| `src/teachers.ts` | The six teachers: what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `teacherRaid` |
 
 ## Starting point
 
-Karkulka's core carries over, adapted: `rng.ts` (seeded RNG), `model.ts` (one hidden layer, hand-written, here with 8 outputs), the training worker, charts, and the GitHub Pages deploy workflow. Its thoughts, hidden events and story (`thoughts.ts`, `storyEvents.ts`, `story.ts`) are the models for his thoughts, the dungeon events and the skald's saga.
+Karkulka's core carries over, adapted: `rng.ts` (seeded RNG), `model.ts` (one hidden layer, hand-written, here with 9 outputs), the training worker, charts, and the GitHub Pages deploy workflow. Its thoughts, hidden events and story (`thoughts.ts`, `storyEvents.ts`, `story.ts`) are the models for his thoughts, the dungeon events and the skald's saga.
 
 Phase one is built in the steps of `docs/plan.md`, one pull request each: setup, dungeon generator, world rules, tokens, model, teachers, training and many raids, events, thoughts and saga, UI, tuning.
 

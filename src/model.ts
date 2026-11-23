@@ -1,7 +1,7 @@
 /**
- * The model: a tiny hand-written neural network, no ML library. Tokens in, 8 action probabilities out.
+ * The model: a tiny hand-written neural network, no ML library. Tokens in, 9 action probabilities out.
  *
- *   active inputs (0/1) → 48 tanh units → 8 logits → softmax (with temperature: the boldness dial)
+ *   active inputs (0/1) → 48 tanh units → 9 logits → softmax (with temperature: the boldness dial)
  *
  * Adapted from Karkulka's `model.ts`. Every input is 0 or 1 and only about 1 in 17 is 1, so an input is the list of
  * its active indices (`encode` in `tokens.ts`). The first layer is stored one row of 48 weights per input, so the
@@ -49,7 +49,7 @@ export interface Model {
 
 /**
  * A fresh network, the same for the same seed: weights from the `model|<seed>` stream, biases 0. `w1` is uniform
- * in ±W1_INIT; `w2` is uniform in ±½·√(6 / (nH + 8)) (half Glorot, as in Karkulka), so the first probabilities
+ * in ±W1_INIT; `w2` is uniform in ±½·√(6 / (nH + 9)) (half Glorot, as in Karkulka), so the first probabilities
  * are near even.
  */
 export function createModel(nIn: number, seed: string | number, nH = HIDDEN): Model {
@@ -65,7 +65,7 @@ export function createModel(nIn: number, seed: string | number, nH = HIDDEN): Mo
   };
 }
 
-/** nIn·nH + nH + 8·nH + 8: 48,536 / 95,000 / 164,696 for the short / medium / long memory. */
+/** nIn·nH + nH + 9·nH + 9: 48,633 / 95,193 / 165,033 for the short / medium / long memory. */
 export const parameterCount = (m: Pick<Model, 'nIn' | 'nH'>): number => m.nIn * m.nH + m.nH + N_OUT * m.nH + N_OUT;
 
 // ── Forward ─────────────────────────────────────────────────────────────────
