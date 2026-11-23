@@ -43,6 +43,8 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/thoughts.ts` | His thoughts after actions, by how sure he was and what happened |
 | `src/saga.ts` | The skald's saga: true sentences from the record, borrowed events, boasts and fantasy by boldness |
 | `src/worker.ts`, `src/workerClient.ts` | The Web Worker that runs `runJob`, and the page's side of it |
+| `src/marks.ts` | Floor marks for the board: pools where monsters fall, his prints after walking through one |
+| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `dom.ts` |
 
 ## Starting point
 
@@ -55,7 +57,7 @@ Phase one is built in the steps of `docs/plan.md`, one pull request each: setup,
 - **Every feature maps to a language-model idea.** Add it to the mapping table in `docs/design.md`. Explanation stays light: short captions, and an "AI idea" card only for the main ideas.
 - **Original art only:** simple symbolic SVG shapes drawn in code. No tile packs, external images or resemblance to existing games.
 - **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP).
-- **Child-friendly outcomes:** nothing graphic. Monsters turn into coins; the barbarian is knocked out and carried out.
+- **Tone:** not horror, but not for small children either. Beaten monsters leave their coins and a faint pool (dark maroon, or teal for a slime), never gore; the barbarian is knocked out and carried out.
 - **Deterministic generation:** dungeons come only from the seeded RNG, so a dungeon code always gives the same dungeon. Changing the generator changes every existing code, so call that out in the pull request.
 - **Hidden events and thoughts have their own randomness, never the raid's:** turning them off, or changing their wording, never changes which actions are sampled, how monsters move or what the dungeon holds. Thoughts change nothing. The few events with an effect change his stats on purpose: the model sees the result but never the cause.
 - **Tune with numbers:** when changing the generator, rewards or training, measure across many dungeon codes and put before/after numbers in the pull request.
