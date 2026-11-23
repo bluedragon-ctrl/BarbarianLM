@@ -50,6 +50,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Lessons from a teacher | Pretraining on example text |
 | Choice of teacher | Training data and the values of whoever made it |
 | The goblin in disguise as a teacher | Data poisoning |
+| The champion gathers strength and vigour before taking on trolls | An agent gathering tools or context before a hard task |
 | The dwarf with his own pickaxe (digs in one blow; the barbarian needs several) | Distillation from a stronger model: the student copies moves it cannot really do |
 | Teachers remember the whole map they have seen; he remembers only his memory strip | The examples were written by someone who knew more than the context shows |
 | Practice judged by gold carried out | Fine-tuning with a reward (reinforcement learning) |
@@ -104,7 +105,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Nearest monster from the stairs | 9 steps (5–19) |
 | Cracked walls | 1.8 (0–3); none in 9% of dungeons; each saves 23 steps (8–52) |
 
-Walking to the deepest tile and back takes about 60 of the 150 turns, before any fight or detour.
+Walking to the deepest tile and back takes about 60 of the 200 turns, before any fight or detour.
 
 ### Tiles (13 kinds in a view)
 
@@ -147,6 +148,7 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 - **Next to** means sharing a side (up, down, left or right), never a diagonal: monsters hit and step only in the 4 directions he can.
 - **Mobile:** if next to him, it hits him. Otherwise, if it **notices** him, it steps towards him; otherwise it wanders (seeded). It notices him within 3 tiles, or **5 tiles while his torch is lit** *(tune)*, and only with a clear line of sight (below).
   - **Stepping towards him:** by a shortest path over tiles a chasing monster may step on, where a spike trap counts as 2 steps (other monsters are ignored, since they move). So it goes round a trap when the way round is just as short, and otherwise steps on and takes the 2 damage. Of its free side neighbours on a shortest way it takes the first in the order up, right, down, left. If none is free (no way to him, or the way is taken by another monster), it waits.
+  - **Losing interest** *(tune)*: after 5 steps of chasing him, it gives up and wanders for 6 turns, not noticing him (it still hits him if he stands next to it). Losing sight of him ends a chase too, and the count starts again. Before this a rat or goblin that noticed him followed him for good, so every chase ended in a fight; now he can walk away. The teachers measure the same either way (with these stats a rat or goblin costs at most 2 HP to beat, so they fight it rather than run), but a student who runs is not chased forever. Added with the teachers' review for the buffs.
   - **Wandering:** one draw from the monster stream per wandering monster per turn: up, right, down, left or stay, one in 5 each. If that tile is not free for it (traps included), it stays. Wanderers stay put about 4 times in 10, so monsters linger in rooms; if they turn out too easy to dodge, draw only among the free tiles instead.
   - **Beaten by a trap:** it runs off and drops no gold (gold drops only when he beats it). Like him, it is hurt only when it steps onto the trap, not while it stands there.
 - **Immobile:** hits him if he is next to it; never moves.
@@ -163,7 +165,7 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 | Potions | 2 *(tuned in step 5, from 1)* | Drinking heals 6 *(tune)*, up to max HP |
 | Torches | 1 | Lighting one gives 15 turns of light *(tune)*, the turn it is lit included |
 | Gold | 0 | Counts only if he leaves |
-| Time | 150 turns *(tune)* | At 0 the gate closes: he is locked in, the keeper lets him out in the morning and keeps the gold |
+| Time | 200 turns *(tuned with the buffs, from 150)* | At 0 the gate closes: he is locked in, the keeper lets him out in the morning and keeps the gold |
 
 ### Actions (9 output tokens)
 
@@ -295,18 +297,19 @@ The HP weight grows as HP falls (weight × max HP ÷ HP), and a tile whose own h
 6. A mobile monster it would fight, two steps away and coming: **Wait**, so it steps next to him and he strikes first (not twice in a row; the warrior never waits).
 7. A torch would show enough unseen tiles at distance 2: Light torch.
 8. Standing on gold or a useful item, and no monster would hit him for it: Pick up.
-9. Go home if the time or HP left says so (below), else to the nearest gold or item worth having that passes the checks above (the warrior also counts a monster he can beat as gold), else to the nearest tile next to unseen ones (diggers also to cracked walls with unseen tiles behind), else home.
+9. Go home if the time or HP left says so (below), else to the nearest gold or item worth having that passes the checks above (the warrior, and the champion once buffed, also count a monster they can beat as gold; an item a teacher goes out of its way for counts as that many turns nearer), else to the nearest tile next to unseen ones (diggers also to cracked walls with unseen tiles behind), else home.
 
-A fight is one it **may** have if the damage (`fightDamage`: the hits above, plus the approach hit when it has to step next to the monster) is affordable and still leaves enough for the traps on the way back.
+A fight is one it **may** have if the damage (`fightDamage`: the hits above, plus the approach hit when it has to step next to the monster) is affordable and still leaves enough for the traps on the way back. **Buffed** means he has taken at least one strength and one vigour.
 
 | Teacher | How it plays | Rules *(tune)* |
 | --- | --- | --- |
-| Old warrior (greedy) | Nearest gold, monsters' gold included; fights anything in the way he can beat counting his potions; drinks only when the next hit would knock him out; leaves when time is just enough to walk back | HP weight 1; never waits; drinks when a monster next to him or two steps away hits as hard as his HP; 5 turns to spare; heads home at ¼ HP with no potions |
+| Old warrior (reckless) | Nearest gold, monsters' gold included; fights anything in the way he can beat counting his potions; likes strength; drinks only when the next hit would knock him out; leaves when time is just enough to walk back | HP weight 1; never waits; drinks when a monster next to him or two steps away hits as hard as his HP; strength and vigour count 10 turns nearer; 5 turns to spare; heads home at ¼ HP with no potions |
 | Healer (careful) | Fights only what he can beat with HP to spare; drinks below half HP; lights a torch when entering an unseen room; leaves when HP is low or with time to spare | HP weight 2; a fight must leave ⅓ of max HP, potions not counted; waits; torch when it shows 5+ unseen tiles; 20 turns to spare; heads home at ½ HP with no potions |
-| Thief (sneaky) | Avoids monsters; takes only gold no monster guards; lights torches often to see danger early | As the healer, but HP weight 10; never plans through a monster (strikes back only at a mobile one next to him); gold within 2 tiles of a slime or troll, or with a monster on or next to it, is guarded; torch when it shows 2+ unseen tiles |
+| Thief (sneaky) | Gold and items without a fight: avoids monsters, goes out of his way for potions, torches, strength and vigour no monster guards; lights torches often to see danger early | As the healer, but HP weight 10; never plans through a monster (strikes back only at a mobile one next to him); gold or an item within 2 tiles of a slime or troll, or with a monster on or next to it, is guarded; potions, torches, strength and vigour count 10 turns nearer; torch when it shows 2+ unseen tiles |
 | Dwarf (digger) | Like the healer, but digs through a wall when digging (at his real attack) costs fewer turns than walking round | As the healer, digging in the planner |
 | Dwarf with his own pickaxe | Plans as if every wall falls in one blow; the barbarian cannot, so copying him wastes turns | As the dwarf, a wall costing 1 blow. His lessons are played with his pickaxe (`step(…, { pickaxe: true })`): there every wall does fall in one blow |
 | Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it | The warrior's rules, plus rule 2 |
+| Champion (gets stronger first) | Goes out of his way for strength and vigour; careful like the healer until buffed, then counts his potions in a fight and hunts monsters for their gold, slimes and trolls included | As the healer, but strength and vigour count 20 turns nearer; once buffed, potions count as HP in a fight and monsters' gold as gold; a fight must leave 0.1 of max HP; 10 turns to spare |
 
 **Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack; with two strength and two vigour in every dungeon, so the step 5 numbers with one of each follow the table):
 
@@ -468,7 +471,7 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 
 ### Phase one
 
-Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kinds, line of sight, 9 actions, 6 teachers, practice with 3 judges, raid alone with thoughts, hidden events and the saga, many raids, inside-the-model tab, save and links.
+Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kinds, line of sight, 9 actions, 7 teachers, practice with 3 judges, raid alone with thoughts, hidden events and the saga, many raids, inside-the-model tab, save and links.
 
 ### Phase two ideas
 

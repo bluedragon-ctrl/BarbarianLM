@@ -57,7 +57,7 @@ A test checks the promise from CLAUDE.md: with events on and off, the same raid 
 ### 5. Teachers — `src/teachers.ts`
 
 - A shared planner over the tiles a teacher has seen this raid: shortest paths with walking, digging (at his real attack, or one blow for the pickaxe dwarf) and fight costs; re-plans every turn; time needed to walk back.
-- The six teachers as rule sets on top of the planner.
+- The six teachers as rule sets on top of the planner (a seventh, the champion, came with the second strength and vigour).
 - **Measure** over 1,000 codes per teacher: gold out, left / knocked out / locked in, turns, potions, torches, digs. This is the main tuning checkpoint for HP, monster stats, time limit and torch length. Target shape: the healer leaves almost always; the warrior earns more but is knocked out more often; the thief earns less but safely; the dwarf beats the healer; the pickaxe dwarf wastes turns when copied; the goblin in disguise loses where trolls are in sight. Settle the "Wait" question here. **Settled:** Wait is the 9th action; the start is 14 HP and 2 potions (see the design).
 
 ### 6. Training and evaluation — `src/train.ts`, `src/raid.ts`, `src/raids.ts`, `src/worker.ts`

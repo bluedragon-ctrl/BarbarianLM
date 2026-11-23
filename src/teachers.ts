@@ -1,5 +1,5 @@
 /**
- * The teachers: six hand-written ways to play the barbarian, for his lessons (imitation). Each teacher sees only
+ * The teachers: seven hand-written ways to play the barbarian, for his lessons (imitation). Each teacher sees only
  * what he could see (the cells of his view that are not dark) and remembers every tile it has seen on this trip.
  * A shared planner finds the cheapest way over those tiles, counting turns for walking, digging and fighting and HP
  * for hits; the teachers are rule sets on top of it. They re-plan every turn, because monsters move.
