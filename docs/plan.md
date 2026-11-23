@@ -64,7 +64,7 @@ A test checks the promise from CLAUDE.md: with events on and off, the same raid 
 
 - `raid.ts`: a raid alone, one sampled action at a time, with boldness and the block option.
 - Lessons (imitation from the chosen teacher) and practice (policy gradient, three judges), in the worker, as in Karkulka.
-- `raids.ts`: Many raids and its counts.
+- `raids.ts`: Many raids and its counts. Count "left with no gold" apart from "left": a player that takes Leave on the first turn otherwise looks safe.
 - **Measure:** gold out after lessons from each teacher, at each memory size; practice with each judge (gold out should rise; gold picked up should hoard and get locked in; monsters beaten should pick fights). Before/after numbers go into the PR.
 
 ### 7. Events, thoughts and saga — `src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`

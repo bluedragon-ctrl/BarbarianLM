@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateDungeon } from '../src/dungeon';
-import { NOTICE_RANGE, NOTICE_RANGE_LIT, monsterMayEnter, notices } from '../src/monsters';
+import { NOTICE_RANGE, NOTICE_RANGE_LIT, TRAP_STEPS, chaserMayEnter, monsterMayEnter, notices } from '../src/monsters';
 import { rngFrom, type Rng } from '../src/rng';
 import { BEDROCK, FLOOR, GOLD, POTION, STAIRS, TORCH, TRAP, WALL, type Tile } from '../src/tiles';
 import { ACTIONS, DRINK, RULES, allowedActions, newRaid, step, type Action } from '../src/world';
@@ -59,14 +59,14 @@ describe('monsters', () => {
   });
 
   it('a noticing one steps towards him by a shortest path, ties up, right, down, left', () => {
-    // A trap blocks the straight way but not the view: the rat goes round, up and down tie, so up.
-    const s = raidFrom(['.....', '.....', '@.^r.', '.....', '.....']);
+    // A wall where up would go (off the line of sight): left is the shortest way left.
+    const s = raidFrom(['@..', '..#', '..r']);
     s.potions = 0;
     expect(notices(s, s.monsters[0])).toBe(true);
     step(s, wait, noRng);
-    expect(at(s)).toBe(cell(s, 3, 1));
+    expect(at(s)).toBe(cell(s, 1, 2));
     step(s, wait, noRng);
-    expect(at(s)).toBe(cell(s, 2, 1));
+    expect(at(s)).toBe(cell(s, 1, 1));
     // Open floor, him up-left of the rat: up and left are both shortest, up goes first.
     const t = raidFrom(['@..', '...', '..r']);
     t.potions = 0;
@@ -74,16 +74,42 @@ describe('monsters', () => {
     expect(at(t)).toBe(cell(t, 2, 1));
   });
 
-  it('never step onto traps, stairs, walls, him or another monster', () => {
-    expect(([FLOOR, GOLD, POTION, TORCH] as Tile[]).every(monsterMayEnter)).toBe(true);
-    expect(([TRAP, STAIRS, WALL, BEDROCK] as Tile[]).some(monsterMayEnter)).toBe(false);
-    // A noticing rat behind a trap waits: there is no way to him a monster may walk.
-    const s = raidFrom(['@.^r']);
+  it('chasing, cross a spike trap and take its damage when that is shortest; a trap counts as 2 steps', () => {
+    expect(TRAP_STEPS).toBe(2);
+    // A goblin in a corridor with a trap between them: it steps on, takes 2 and comes on.
+    const s = raidFrom(['@.^g']);
+    s.potions = 0;
+    const r = step(s, wait, noRng);
+    expect(at(s)).toBe(cell(s, 2, 0));
+    expect(s.monsters[0].hp).toBe(2);
+    expect(r.monstersTrapped).toEqual([{ monster: { kind: 'goblin', pos: cell(s, 2, 0), hp: 2, rich: false }, damage: 2, beaten: false }]);
+    step(s, wait, noRng);
+    expect([at(s), s.monsters[0].hp]).toEqual([cell(s, 1, 0), 2]); // stepping off a trap does not hurt
+    // A trap that beats it: it is gone, and leaves no gold.
+    const t = raidFrom(['@.^r']);
+    t.potions = 0;
+    const tr = step(t, wait, noRng);
+    expect(tr.monstersTrapped[0].beaten).toBe(true);
+    expect(t.monsters).toEqual([]);
+    expect(t.map.gold.every((g) => g === 0)).toBe(true);
+    expect(t.map.tiles[cell(t, 2, 0)]).toBe(TRAP);
+  });
+
+  it('chasing, go round a trap when another way is just as short, whatever the direction order says', () => {
+    // Up (through the trap) and left are both 3 steps on foot; the trap makes up 4, so it goes left.
+    const s = raidFrom(['@..', '..^', '..g']);
     s.potions = 0;
     step(s, wait, noRng);
-    expect(at(s)).toBe(cell(s, 3, 0));
+    expect(at(s)).toBe(cell(s, 1, 2));
+    expect(s.monsters[0].hp).toBe(4);
+  });
+
+  it('wandering, never step onto traps, stairs, walls, him or another monster', () => {
+    expect(([FLOOR, GOLD, POTION, TORCH] as Tile[]).every(monsterMayEnter)).toBe(true);
+    expect(([TRAP, STAIRS, WALL, BEDROCK] as Tile[]).some(monsterMayEnter)).toBe(false);
+    expect(([STAIRS, WALL, BEDROCK] as Tile[]).some(chaserMayEnter)).toBe(false);
     // Wandering into the stairs, a wall or another monster: it stays.
-    for (const [rows, dir] of [[['#', 'r', '.', '.', '.', '@'], 0], [['>r...@'], 3], [['rs...@'], 1]] as const) {
+    for (const [rows, dir] of [[['#', 'r', '.', '.', '.', '@'], 0], [['^', 'r', '.', '.', '.', '@'], 0], [['>r...@'], 3], [['rs...@'], 1]] as const) {
       const w = raidFrom(rows as unknown as string[]);
       w.potions = 0;
       const before = w.monsters.map((m) => m.pos);

@@ -157,15 +157,21 @@ describe('drink and torch', () => {
     expect(step(s, DRINK, noRng).did).toBe('nothing');
   });
 
-  it('lights a torch for 15 turns, counting the turn it is lit; not while one burns', () => {
+  it('lights a torch for 15 lit turns, the turn it is lit included; not while one burns', () => {
     const s = raidFrom(['@']);
     s.torches = 2;
     expect(step(s, LIGHT_TORCH, noRng).did).toBe('light');
-    expect([s.torches, s.torchLeft]).toEqual([1, RULES.torchTurns - 1]);
+    expect([s.torches, s.torchLeft]).toEqual([1, 15]); // 15 lit views to come, this one included
+    let lit = 1;
     expect(step(s, LIGHT_TORCH, noRng).did).toBe('nothing');
+    lit++;
     let out = 0;
-    for (let k = 0; k < 13; k++) if (step(s, DRINK, noRng).torchOut) out++;
-    expect([s.torchLeft, out]).toEqual([0, 1]);
+    for (let k = 0; k < 14; k++) {
+      const r = step(s, DRINK, noRng);
+      if (r.torchOut) out++;
+      if (s.torchLeft > 0) lit++;
+    }
+    expect([s.torchLeft, out, lit]).toEqual([0, 1, 15]);
     expect(step(s, LIGHT_TORCH, noRng).did).toBe('light');
     s.torches = 0;
     s.torchLeft = 0;
@@ -309,7 +315,7 @@ describe('a full scripted raid', () => {
       if (r.torchOut) torchOutAt = s.turn;
       expect([r.did, x(), s.hp, s.gold, s.potions, ratX()], `turn ${k + 1}`).toEqual([did, ex, hp, gold, potions, rx]);
     });
-    expect(torchOutAt).toBe(RULES.torchTurns);
+    expect(torchOutAt).toBe(16); // the 15 lit turns are 1–15
     expect(s.ended).toBe('left');
     expect(goldOut(s)).toBe(4);
     expect(s.turn).toBe(script.length);

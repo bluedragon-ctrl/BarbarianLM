@@ -111,7 +111,7 @@ Walking to the deepest tile and back takes about 60 of the 150 turns, before any
 | Cracked wall | A stone wall with 3 HP or less (placed by the generator, or one he has damaged) |
 | Bedrock | Unbreakable; bumping it wastes the turn ("Clang!") |
 | Stairs | Where he starts; "Leave" works only here |
-| Spike trap | Visible; walkable; 2 damage *(tune)* each time he steps on it; monsters walk around it |
+| Spike trap | Visible; walkable; 2 damage *(tune)* to whoever steps on it, each time: him, or a monster chasing him |
 | Small gold | A pile of 3 gold; "Pick up" adds it |
 | Gold heap | A heap of 10 gold *(tune)*; "Pick up" adds it |
 | Potion | "Pick up" puts it in his pack (at most 3) |
@@ -142,11 +142,12 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 
 - **Next to** means sharing a side (up, down, left or right), never a diagonal: monsters hit and step only in the 4 directions he can.
 - **Mobile:** if next to him, it hits him. Otherwise, if it **notices** him, it steps towards him; otherwise it wanders (seeded). It notices him within 3 tiles, or **5 tiles while his torch is lit** *(tune)*, and only with a clear line of sight (below).
-  - **Stepping towards him:** by a shortest path over tiles monsters may step on (other monsters ignored, since they move). Of its free side neighbours it takes the one nearest him, ties in the order up, right, down, left. If none is nearer (no way to him, or the way is taken by another monster), it waits.
-  - **Wandering:** one draw from the monster stream per wandering monster per turn: up, right, down, left or stay, one in 5 each. If that tile is not free for it, it stays.
+  - **Stepping towards him:** by a shortest path over tiles a chasing monster may step on, where a spike trap counts as 2 steps (other monsters are ignored, since they move). So it goes round a trap when the way round is just as short, and otherwise steps on and takes the 2 damage. Of its free side neighbours on a shortest way it takes the first in the order up, right, down, left. If none is free (no way to him, or the way is taken by another monster), it waits.
+  - **Wandering:** one draw from the monster stream per wandering monster per turn: up, right, down, left or stay, one in 5 each. If that tile is not free for it (traps included), it stays. Wanderers stay put about 4 times in 10, so monsters linger in rooms; if they turn out too easy to dodge, draw only among the free tiles instead.
+  - **Beaten by a trap:** it runs off and drops no gold (gold drops only when he beats it). Like him, it is hurt only when it steps onto the trap, not while it stands there.
 - **Immobile:** hits him if he is next to it; never moves.
 - **Acting order:** the order the generator placed them in, fixed for the raid. Each acts on what the ones before it left, so the first to move takes a tile two want.
-- **Where monsters may step:** floor and any item (in a corridor there is no way round). Never onto spike traps, the stairs (so the way out is never blocked), walls, him or another monster. They never pick anything up.
+- **Where monsters may step:** floor and any item (in a corridor there is no way round); spike traps only while chasing him. Never onto the stairs (so the way out is never blocked), walls, him or another monster. They never pick anything up. Traps in corridors used to wall monsters off from 41% of the dungeon: so a trap slows a chase and can hurt the chaser, but never makes a safe zone.
 - **Beaten:** it drops its gold on its tile (rats too: a rat's pile is 1). On bare floor that makes a new pile; on gold the amounts add up (a heap from 6). If the tile holds another item (potion, torch, strength, vigour), the gold goes to the nearest empty floor tile, searched in a fixed order (up, right, down, left, then further out), so nothing is lost and the result is deterministic. "Nearest" is breadth-first over open tiles from the monster's tile, and "empty" means bare floor: gold never lands on stairs, traps or other items, but may land under him or another monster.
 
 ### The barbarian
@@ -200,7 +201,7 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
   A wall cell itself is seen when the line reaches it, so he sees the wall that blocks him.
 - **Exactly:** for a line of n steps (n = the larger of |dx| and |dy|), at each step k between the ends the line sits at k/n of the way; on the axis where that is not a whole tile it takes the nearest tile, or both when it is exactly halfway (one open is enough at that step). Cells off the map are dark. "Within a square of r tiles" means at most r along each axis.
 - Monsters notice him by the same rule within a square of 3 tiles around them, or 5 while his torch is lit. So in the dark a goblin can notice him from 3 tiles while he sees only 1: that is the missing information.
-- **The torch** is lit while it has turns left. Step 3 of the turn order burns one off, the turn it is lit included, so a 15-turn torch is lit for the monsters' moves and his views on 14 turns, the one he lights it in included, and goes out at step 3 of the 15th. He can light a new one on the turn after it goes out.
+- **The torch** is lit while it has turns left. Lighting gives it 16, and step 3 of the turn order burns one off each turn, the turn it is lit included: so it is lit for the monsters' moves and his views on 15 turns, the one he lights it in included, and goes out at step 3 of the 16th. The turns left after step 3 are the lit views still to come, this one included, which is what the "burning low (≤ 3)" token reads. He can light a new one on the turn after it goes out.
 
 ### End of a trip and score
 
@@ -354,6 +355,6 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 
 ### Open questions
 
-- Is a "Wait" action needed (to let a monster come to him)?
+- Is a "Wait" action needed (to let a monster come to him)? Decide in step 5 from what the teachers want. Until then a wasted action (drinking with no potions) is his only wait, and "Block impossible actions" takes it away. Adding Wait changes the output size, so it must come before training and saves.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.

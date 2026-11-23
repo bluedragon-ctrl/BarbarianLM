@@ -20,6 +20,9 @@ export const isOpen = (t: Tile): boolean => !isWall(t);
 /** Items "Pick up" takes. */
 export const isItem = (t: Tile): boolean => t >= GOLD;
 
+/** Damage a spike trap deals to whoever steps onto it, him or a monster. */
+export const TRAP_DAMAGE = 2;
+
 export const WALL_HP = 6;
 /** A stone wall at this HP or less shows as cracked. */
 export const CRACKED_HP = 3;
