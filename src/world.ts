@@ -30,9 +30,9 @@ export const ACTION_NAMES = ['up', 'right', 'down', 'left', 'pick up', 'drink', 
 
 /** His numbers *(tune)*. */
 export const RULES = {
-  startHp: 12,
+  startHp: 14,
   startAttack: 2,
-  startPotions: 1,
+  startPotions: 2,
   startTorches: 1,
   /** At most this many potions, and this many torches, in his pack. */
   packMax: 3,

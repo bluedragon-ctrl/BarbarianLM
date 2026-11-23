@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { generateDungeon } from '../src/dungeon';
 import { randInt, randomCode, rngFrom } from '../src/rng';
-import { DARK, MONSTER_VIEW_KIND, VIEW_KINDS, lineClear, sees, squareDistance } from '../src/sight';
+import { DARK, MONSTER_VIEW_KIND, VIEW_KINDS, lineClear, seenTiles, sees, squareDistance } from '../src/sight';
 import { FLOOR, SHOWN, WALL } from '../src/tiles';
-import { RULES, view } from '../src/world';
+import { RULES, newRaid, view } from '../src/world';
 import { cell, raidFrom } from './maps';
 
 /** The design's 5 × 5 table: whether outer cell (dx, dy) is seen, given which cells are open. */
@@ -108,5 +108,22 @@ describe('sight', () => {
     const s = raidFrom(['.......', '.......', '.......', '...@...', '.......', '.......', '.......']);
     expect(sees(s.map, s.pos, cell(s, 6, 6), 3)).toBe(true);
     expect(sees(s.map, s.pos, cell(s, 6, 6), 2)).toBe(false);
+  });
+});
+
+describe('seen tiles', () => {
+  it('are exactly the cells of his view that are not dark', () => {
+    const rng = rngFrom('seen-tiles');
+    for (let n = 0; n < 20; n++) {
+      const d = generateDungeon(randomCode(rng));
+      const open = d.tiles.map((_, i) => i).filter((i) => d.tiles[i] !== 2);
+      const pos = open[randInt(rng, open.length)];
+      for (const lit of [false, true]) {
+        const v = view({ ...newRaid(d), pos, torchLeft: lit ? 5 : 0 });
+        const size = d.size;
+        const fromView = v.flatMap((c, k) => (c.kind === DARK ? [] : [pos + (Math.floor(k / 5) - 2) * size + (k % 5) - 2]));
+        expect(seenTiles({ ...d, pos, lit })).toEqual(fromView);
+      }
+    }
   });
 });

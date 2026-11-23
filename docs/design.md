@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`) the tokens (`src/tokens.ts`) and the model (`src/model.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`) and the teachers (`src/teachers.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -19,7 +19,7 @@ Every action is a token. What he sees around him is an input token, and the acti
 
 `[HP] [max HP] [attack] [potions] [torches] [torch lit] [gold] [time] [stairs] | [view] [action] [view] [action] [view] → next action?`
 
-The tokens before the bar are **pinned**: they describe him now and never scroll out. The model reads the context and outputs a probability for each of the 8 actions. One is sampled, he takes it, **the dungeon answers** (monsters move and hit, the torch burns down, time passes), he sees a new view, and the loop repeats until he leaves, is knocked out, or the gate closes.
+The tokens before the bar are **pinned**: they describe him now and never scroll out. The model reads the context and outputs a probability for each of the 9 actions. One is sampled, he takes it, **the dungeon answers** (monsters move and hit, the torch burns down, time passes), he sees a new view, and the loop repeats until he leaves, is knocked out, or the gate closes.
 
 The goal: enter by the stairs, gather gold, and **leave by the stairs** with as much as possible. Gold counts only if he gets out.
 
@@ -28,7 +28,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | In the game | In a language model |
 | --- | --- |
 | A view of his surroundings | An input token |
-| An action (8 kinds) | An output token from a vocabulary of 8 |
+| An action (9 kinds) | An output token from a vocabulary of 9 |
 | Memory strip of recent views and actions | The context window |
 | Memory size (short, medium, long) | Context length, fixed before training |
 | Thickness of the action bars | Next-token probabilities |
@@ -36,6 +36,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Pinned stats (HP, attack, gold, potions, torches, time) | A system prompt or state that is always in the context |
 | Stats in buckets ("HP: low") instead of exact numbers | Numbers are chopped into tokens, which is why models are bad at exact arithmetic |
 | "Leave" on the stairs | The end-of-sequence token: deciding when the answer is finished |
+| "Wait": stand still and let the monster come to him | An agent's output that does nothing itself but lets the world answer first |
 | Gold lost if he is knocked out or locked in | An answer that is cut off or goes wrong at the end is worth nothing, however good its start |
 | The gate closes at sundown (time limit) | Maximum output length |
 | Monsters move and hit back after each action | An agent loop: the model acts, the world (a tool, a user) answers, and the answer joins the context |
@@ -156,14 +157,14 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 
 | Stat | Start | Notes |
 | --- | --- | --- |
-| HP / max HP | 12 / 12 | 0 HP: knocked out, all gold lost |
+| HP / max HP | 14 / 14 *(tuned in step 5, from 12)* | 0 HP: knocked out, all gold lost |
 | Attack | 2 | Damage to monsters and walls per bump |
-| Potions | 1 | Drinking heals 6 *(tune)*, up to max HP |
+| Potions | 2 *(tuned in step 5, from 1)* | Drinking heals 6 *(tune)*, up to max HP |
 | Torches | 1 | Lighting one gives 15 turns of light *(tune)*, the turn it is lit included |
 | Gold | 0 | Counts only if he leaves |
 | Time | 150 turns *(tune)* | At 0 the gate closes: he is locked in, the keeper lets him out in the morning and keeps the gold |
 
-### Actions (8 output tokens)
+### Actions (9 output tokens)
 
 | Token | Effect |
 | --- | --- |
@@ -172,10 +173,11 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 | Drink | Drinks a potion; with none, nothing |
 | Light torch | Lights a torch; with none, or one already burning, nothing |
 | Leave | Works only on the stairs: the trip ends at once and the gold is his. Elsewhere, nothing |
+| Wait | Does nothing on purpose: the turn passes (torch, time, monsters) while he stands still. Never blocked |
 
 Every action, useful or not, takes one turn. An action that does nothing is a **wasted action**; these are exactly the ones "Block impossible actions" blocks. Digging is never wasted: every blow takes HP off the wall.
 
-**Block impossible actions** (a checkbox on Raid alone and Many raids, off by default): before an action is sampled, the ones that would do nothing get probability 0 and the rest are scaled back up to 1. Blocked: picking up on bare floor, or a potion or torch with a full pack; drinking with no potions; lighting a torch with none or one burning; Leave off the stairs; bumping bedrock. Wasteful but possible actions stay allowed (drinking at full HP; bumping a stone wall is digging). The bars still show what the model wanted, with blocked actions struck through. Lessons and practice never block, so he still has to learn not to waste turns, and Many raids can compare wasted actions with the box on and off.
+**Block impossible actions** (a checkbox on Raid alone and Many raids, off by default): before an action is sampled, the ones that would do nothing get probability 0 and the rest are scaled back up to 1. Blocked: picking up on bare floor, or a potion or torch with a full pack; drinking with no potions; lighting a torch with none or one burning; Leave off the stairs; bumping bedrock. Wait is never blocked: it does what it says. Wasteful but possible actions stay allowed (drinking at full HP; bumping a stone wall is digging). The bars still show what the model wanted, with blocked actions struck through. Lessons and practice never block, so he still has to learn not to waste turns, and Many raids can compare wasted actions with the box on and off.
 
 ### Turn order
 
@@ -222,7 +224,7 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
 | Part | Numbers |
 | --- | --- |
 | HP: 1–3, 4–6, 7–10, 11–15, 16+ | 5 |
-| Max HP: up to 12, 13–19, 20+ | 3 |
+| Max HP: up to 14 (the start), 15–19 (after vigour), 20+ | 3 |
 | Attack: 2, 3, 4+ | 3 |
 | Potions: 0, 1, 2, 3 | 4 |
 | Torches: 0, 1, 2, 3 | 4 |
@@ -232,7 +234,7 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
 | Stairs compass: 8 directions or here (on the stairs), plus near / far / very far (none when here) | 12 |
 | **Pinned, total** | **43** |
 | View now: 25 cells × 19 (one-hot over 17 kinds: 13 tiles and 4 monsters, plus the wounded and rich flags) | 475 |
-| Each remembered pair: present flag + view + action | 1 + 475 + 8 = 484 |
+| Each remembered pair: present flag + view + action | 1 + 475 + 9 = 485 |
 
 HP buckets are absolute so that "can I take this hit?" can be read straight from them against the monsters' attacks.
 
@@ -241,43 +243,87 @@ HP buckets are absolute so that "can I take this hit?" can be read straight from
 - **Bucket edges** are as in the table; a value below the first bucket counts in it (HP 0 never reaches the model, since the trip has ended). The torch reads its turns left after step 3 of the turn order, the lit views still to come with this one included: off at 0, low at 1–3, lit at 4+. So a fresh torch reads lit on 12 views, then low on 3.
 - **Compass direction:** the nearest of the 8 compass directions to the straight line from his tile to the stairs, by angle (sectors of 45°, north up the screen). Sector edges lie at tan 22.5° = √2 − 1, which no whole-tile offset hits, so there are no ties. "Here" when he stands on the stairs, and then no distance.
 - **Compass distance:** walking steps to the stairs over the raid's own map (dug walls count as floor; monsters and traps do not block): **near** under 10, **far** 10–19, **very far** 20+. Walking, not straight-line, because what he needs to know is how long the way back takes: over 1,000 codes the walk is 1.8 times the straight line on average and at least twice it on 28% of open tiles (`npm run measure:compass`). These edges split open tiles 29% / 40% / 30%, and they line up with the time buckets: very far with under 20 turns left means he cannot make it. The raid keeps these distances in its state (`stairsDist`), worked out at the start and again only when a wall is dug through, so the teachers' way back uses the same numbers.
-- **Order of the inputs:** pinned (HP, max HP, attack, potions, torches, torch, gold, time, compass: 9 directions then near / far / very far), then the remembered pairs from oldest to newest, then the view now. A view is its 25 cells row by row from the top-left, each 17 kinds then wounded then rich. A pair is its present flag, its view, then the action he took on it (one-hot over 8).
+- **Order of the inputs:** pinned (HP, max HP, attack, potions, torches, torch, gold, time, compass: 9 directions then near / far / very far), then the remembered pairs from oldest to newest, then the view now. A view is its 25 cells row by row from the top-left, each 17 kinds then wounded then rich. A pair is its present flag, its view, then the action he took on it (one-hot over 9).
 - **Memory:** after each action, the view it was taken on and the action join the strip; once it is full the oldest pair drops out. The newest pair always sits in the last slot, next to the view now, so a slot always means the same number of turns ago. Slots not yet filled at the start of a raid are all zero, present flag included.
 - **Sparse:** every input is 0 or 1, so an input is passed as the list of the ones that are 1, in increasing order: 9 or 10 pinned, about 27 per view, 29 per pair: about 115 for the medium memory.
-- **Save version:** `SAVE_VERSION` in `src/tokens.ts`, bumped whenever these sizes or this order change.
+- **Save version:** `SAVE_VERSION` in `src/tokens.ts`, bumped whenever these sizes or this order change: 2 since step 5 (Wait and the max-HP buckets).
 
 ### Network
 
-One hidden layer, 48 units, tanh, softmax over 8 actions (as in Karkulka, hand-written, no ML library: `src/model.ts`).
+One hidden layer, 48 units, tanh, softmax over 9 actions (as in Karkulka, hand-written, no ML library: `src/model.ts`).
 
 | Memory | Remembered pairs | Inputs | Parameters | Active inputs (mean) |
 | --- | --- | --- | --- | --- |
-| Short | 1 | 1,002 | 48,536 | 62 |
-| Medium (default) | 3 | 1,970 | 95,000 | 113 |
-| Long | 6 | 3,422 | 164,696 | 187 |
+| Short | 1 | 1,003 | 48,633 | 62 |
+| Medium (default) | 3 | 1,973 | 95,193 | 113 |
+| Long | 6 | 3,428 | 165,033 | 187 |
 
-Parameters are inputs × 48 + 48 + 48 × 8 + 8. Active inputs are measured on random walks through real dungeons (`npm run measure:model`).
+Parameters are inputs × 48 + 48 + 48 × 9 + 9. Active inputs are measured on random walks through real dungeons (`npm run measure:model`).
 
 - **Sparse:** the first layer is stored one row of 48 weights per input. Every input is 0 or 1, so the hidden layer is tanh of the bias plus the rows of the active inputs, and the backward pass adds to those rows only: the cost follows the ~100 active inputs, not the input size. Gradients are summed over a batch, remembering which rows were touched; the optimiser step visits and clears only those.
-- **Starting weights:** from the seeded stream `model|<seed>`, so the same seed gives the same network. First layer uniform in ±0.1 (with ~113 inputs on, each hidden unit starts with a spread of about 0.6, in tanh's steep middle), second layer uniform in ±½·√(6 / (48 + 8)) ≈ ±0.16 (half Glorot, as in Karkulka), biases 0. The first probabilities are near even.
+- **Starting weights:** from the seeded stream `model|<seed>`, so the same seed gives the same network. First layer uniform in ±0.1 (with ~113 inputs on, each hidden unit starts with a spread of about 0.6, in tanh's steep middle), second layer uniform in ±½·√(6 / (48 + 9)) ≈ ±0.16 (half Glorot, as in Karkulka), biases 0. The first probabilities are near even.
 - **Probabilities:** softmax of the logits divided by the temperature (the boldness dial; at least 0.001, where it is argmax in all but name). **Block impossible actions** sets the blocked actions (`allowedActions`) to 0 and scales the rest back up to 1; the action bars still show the unmasked probabilities, struck through where blocked. Lessons and practice never mask.
 - **Lessons:** loss −log p(teacher's action) at temperature 1, gradient p − one-hot. Adam, learning rate 0.01, β₁ 0.9, β₂ 0.999, ε 10⁻⁸, on the batch's mean gradient, no clipping. Adam keeps two moments per weight (760 KB at the medium memory) but is **lazy**: a first-layer row with no gradient in a batch is left alone, moments included, and each row is bias-corrected by its own count of updates, so a row first seen late in training gets the same careful first step as one seen at the start. The biases and the second layer get a gradient from every example and use the global count.
 - **Practice:** loss −advantage · log p(sampled action), at temperature 1 (the sampling temperature only changes which actions get tried), gradient advantage · (p − one-hot). Plain SGD, learning rate 0.05, on the batch's mean gradient, shortened to length 1 when longer (Karkulka's). The advantage, its baseline and its clipping (Karkulka clips to ±1) belong to the training loop, step 6.
 - **Saves:** a plain object with `SAVE_VERSION`, inputs, hidden units, actions and the four weight arrays, each number kept to 9 significant digits (exact for 32-bit floats). Loading rejects another save version, another number of actions, an input size other than the memory size expects, or arrays that do not fit.
-- **Speed** (one core, per example, a batch of 32 per optimiser step): forward 7 / 13 / 15 µs; a lesson example with its share of the Adam step 19 / 23 / 36 µs; a practice example with SGD 14 / 21 / 31 µs, for the short / medium / long memory. A raid of 200 turns trains in about 5 ms.
+- **Speed** (one core, per example, a batch of 32 per optimiser step): forward 8 / 10 / 16 µs; a lesson example with its share of the Adam step 17 / 26 / 36 µs; a practice example with SGD 16 / 22 / 31 µs, for the short / medium / long memory. A raid of 200 turns trains in about 5 ms.
 
 ### Phase 1: lessons (imitation)
 
-Teachers play the barbarian by hand-written rules. **They see only what he could see**, and remember every tile they have seen on this trip. A teacher who saw the whole map would never need a torch, so torches would never be learned. Each teacher re-plans every turn (shortest paths over the tiles it knows), because monsters move.
+Teachers play the barbarian by hand-written rules (`src/teachers.ts`). **They see only what he could see**: the cells of his view that are not dark, turn by turn, and they remember every tile they have seen on this trip, as it was when last seen. A teacher who saw the whole map would never need a torch, so torches would never be learned. What it knows of a seen tile is what the board shows for it: the exact gold, wall HP and monster HP. A tile under a monster keeps what was known of it (or counts as floor if never seen). An immobile monster is remembered until its tile is seen empty; a mobile one for 4 turns out of sight, or until one of the same kind turns up close enough to be it. Teachers have no randomness: ties go to the direction order up, right, down, left and to tiles by index, so the same raid gives the same actions.
 
-| Teacher | How it plays |
-| --- | --- |
-| Old warrior (greedy) | Nearest gold; fights anything in the way; drinks only when the next hit would knock him out; leaves when time is just enough to walk back |
-| Healer (careful) | Fights only what he can beat with HP to spare; drinks below half HP; lights a torch when entering an unseen room; leaves when HP is low or with time to spare |
-| Thief (sneaky) | Avoids monsters; takes only gold no monster guards; lights torches often to see danger early |
-| Dwarf (digger) | Like the healer, but digs through a wall when digging (at his real attack) costs fewer turns than walking round |
-| Dwarf with his own pickaxe | Plans as if every wall falls in one blow; the barbarian cannot, so copying him wastes turns |
-| Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it |
+**The shared planner** finds the cheapest way from his tile to every known tile (Dijkstra), re-planned every turn because monsters move. Unseen tiles and bedrock are closed. A step costs turns + a weight × damage:
+
+| Entering | Turns | Damage |
+| --- | --- | --- |
+| Floor, item, stairs | 1 | 0 |
+| Spike trap | 1 | 2 |
+| A wall (only teachers that dig) | 1 + blows: wall HP ÷ his attack, rounded up; 1 for the pickaxe dwarf | 0 |
+| A monster he may fight | 1 + blows: its HP ÷ his attack, rounded up | its attack × (blows − 1): it hits after every blow but the last |
+| Any tile next to a monster | | that monster's attack (so stepping next to one he will fight costs the approach hit) |
+
+The HP weight grows as HP falls (weight × max HP ÷ HP), and a tile whose own hits would knock him out is closed. The plan does not remember fights on the way, so a monster beaten earlier on a path still counts past it: a little careful, never reckless. **The way back** is the same planner run from the stairs, counting turns and trap damage but ignoring monsters (they move). A teacher goes for something only if, from there, it can still get out with turns to spare and with HP left after the traps on the way, potions counted.
+
+**Each turn**, the first rule that applies:
+
+1. Heading home and on the stairs: Leave.
+2. Goblin in disguise, a troll in sight: step towards it (it fights it, and nothing else matters).
+3. Next to a slime or troll it will not fight: step to the free tile next to him where the fewest hits land.
+4. Its potion rule (below): Drink.
+5. Next to a monster it will fight: strike the one it beats in the fewest blows.
+6. A mobile monster it would fight, two steps away and coming: **Wait**, so it steps next to him and he strikes first (not twice in a row; the warrior never waits).
+7. A torch would show enough unseen tiles at distance 2: Light torch.
+8. Standing on gold or a useful item, and no monster would hit him for it: Pick up.
+9. Go home if the time or HP left says so (below), else to the nearest gold or item worth having that passes the checks above (the warrior also counts a monster he can beat as gold), else to the nearest tile next to unseen ones (diggers also to cracked walls with unseen tiles behind), else home.
+
+A fight is one it **may** have if the damage (`fightDamage`: the hits above, plus the approach hit when it has to step next to the monster) is affordable and still leaves enough for the traps on the way back.
+
+| Teacher | How it plays | Rules *(tune)* |
+| --- | --- | --- |
+| Old warrior (greedy) | Nearest gold, monsters' gold included; fights anything in the way he can beat counting his potions; drinks only when the next hit would knock him out; leaves when time is just enough to walk back | HP weight 1; never waits; drinks when a monster next to him or two steps away hits as hard as his HP; 5 turns to spare; heads home at ¼ HP with no potions |
+| Healer (careful) | Fights only what he can beat with HP to spare; drinks below half HP; lights a torch when entering an unseen room; leaves when HP is low or with time to spare | HP weight 2; a fight must leave ⅓ of max HP, potions not counted; waits; torch when it shows 5+ unseen tiles; 20 turns to spare; heads home at ½ HP with no potions |
+| Thief (sneaky) | Avoids monsters; takes only gold no monster guards; lights torches often to see danger early | As the healer, but HP weight 10; never plans through a monster (strikes back only at a mobile one next to him); gold within 2 tiles of a slime or troll, or with a monster on or next to it, is guarded; torch when it shows 2+ unseen tiles |
+| Dwarf (digger) | Like the healer, but digs through a wall when digging (at his real attack) costs fewer turns than walking round | As the healer, digging in the planner |
+| Dwarf with his own pickaxe | Plans as if every wall falls in one blow; the barbarian cannot, so copying him wastes turns | As the dwarf, a wall costing 1 blow. His lessons are played with his pickaxe (`step(…, { pickaxe: true })`): there every wall does fall in one blow |
+| Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it | The warrior's rules, plus rule 2 |
+
+**Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack):
+
+| Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Old warrior | 43.3 | 88% | 0% | 11% | 1% | 129 | 2.0 | 2.5 | 0 | 0 | 0 | 28.1 |
+| Healer | 41.4 | 99% | 0% | 1% | 0% | 128 | 1.5 | 2.4 | 0 | 0 | 1.8 | 17.2 |
+| Thief | 37.4 | 99% | 1% | 0% | 0% | 127 | 0.8 | 2.4 | 0 | 0 | 1.8 | 11.6 |
+| Dwarf | 44.0 | 100% | 0% | 0% | 0% | 130 | 1.2 | 2.3 | 5.9 | 2.6 | 1.7 | 15.3 |
+| Dwarf, own pickaxe | 45.4 | 100% | 0% | 0% | 0% | 129 | 1.2 | 2.3 | 4.8 | 4.8 | 1.7 | 15.1 |
+| … copied | 43.6 | 99% | 0% | 1% | 0% | 131 | 1.1 | 2.3 | 10.9 | 4.4 | 1.7 | 14.3 |
+| Goblin in disguise | 28.0 | 56% | 0% | 43% | 1% | 112 | 1.2 | 2.4 | 0 | 0 | 0 | 25.1 |
+
+The shape holds: the healer leaves almost always; the warrior earns a little more and is knocked out 11 times as often; the thief earns less but safely; the dwarf beats the healer; copied, the pickaxe dwarf strikes 10.9 blows for 4.4 walls where his own pickaxe needs one each; the goblin in disguise is knocked out in 97% of the raids where a troll comes in sight (10% for the warrior). The warrior's lead over the healer is thin (1.9 gold): in this dungeon care pays, and the healer only falls behind because he keeps 20 turns to spare and heads home at half HP.
+
+**Wait** (the open question, settled in step 5): a monster that steps next to him does not hit that turn, so whoever closes the gap is hit first. Every step he or a chasing monster takes changes the distance between them by one, so from two steps away no move of his can make the monster close the gap: only standing still does. Without Wait, the only ways to stand still were wasted actions, which "Block impossible actions" takes away. The careful teachers wait about twice a raid; with Wait the healer loses 1.8 HP less per raid and carries out 1.2 more gold (40.2 without), the dwarf 1.2 HP less and 0.6 more gold.
+
+**Start tuned in step 5:** 14 HP and 2 potions instead of 12 and 1. With the old start (same teachers, same codes) the warrior earned 38.5 and the healer 38.6, so the warrior's risks never paid; the healer was knocked out 2%, the warrior 12%, the goblin 39%. More HP and potions help the warrior most, since he spends HP for gold. The max-HP buckets moved with it (up to 14, 15–19, 20+), so vigour still shows.
 
 ### Phase 2: practice (fine-tuning)
 
@@ -360,7 +406,7 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 
 ### Phase one
 
-Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kinds, line of sight, 8 actions, 6 teachers, practice with 3 judges, raid alone with thoughts, hidden events and the saga, many raids, inside-the-model tab, save and links.
+Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kinds, line of sight, 9 actions, 6 teachers, practice with 3 judges, raid alone with thoughts, hidden events and the saga, many raids, inside-the-model tab, save and links.
 
 ### Phase two ideas
 
@@ -375,8 +421,9 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 
 ### Open questions
 
-- Is a "Wait" action needed (to let a monster come to him)? Decide in step 5 from what the teachers want. Until then a wasted action (drinking with no potions) is his only wait, and "Block impossible actions" takes it away. Adding Wait changes the output size, so it must come before training and saves. Every token size follows from the number of actions, so it is one constant: each pair grows to 485 and the inputs to 1,003 / 1,973 / 3,428.
 - Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
 - The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
-- How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless.
+- How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless. (The step 5 warrior counts a rich monster's gold like any other.)
+- The warrior's lead over the healer is thin (43.3 against 41.4 gold). If lessons from the warrior come out no better than from the healer, give greed more to win: richer trolls' rooms, or a longer day so that the healer's 20 turns to spare cost him more.
+- Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.

@@ -138,7 +138,9 @@ export function enterCost(k: Knowledge, i: number, o: PlanOptions): { turns: num
     turns += blows(m.hp, o.attack);
     damage += fightDamage(m, o.attack, false);
   }
-  // Every monster next to the tile hits him while he stands there (the approach hit, for one he will fight).
+  // Every monster next to the tile hits him while he stands there (the approach hit, for one he will fight). The
+  // plan does not remember fights on the way, so a monster beaten earlier on a path still counts beyond it: a
+  // little careful, never reckless.
   for (const q of k.monsters) {
     if (q !== m && sideNeighbours(k.size, i).includes(q.pos)) damage += MONSTER_STATS[q.kind].attack;
   }
@@ -287,11 +289,11 @@ export interface TeacherRules {
 
 const HEALER: TeacherRules = {
   hpWeight: 2, dig: 'never', fightSpare: 1 / 3, avoidMonsters: false, huntMonsters: false, drink: 'belowHalf',
-  torchReveal: 5, torchKeep: 0, timeMargin: 10, homeHp: 1 / 3, waits: true, trollBait: false,
+  torchReveal: 5, torchKeep: 0, timeMargin: 20, homeHp: 1 / 2, waits: true, trollBait: false,
 };
 const WARRIOR: TeacherRules = {
-  hpWeight: 0.3, dig: 'never', fightSpare: null, avoidMonsters: false, huntMonsters: true, drink: 'nextHit',
-  torchReveal: 5, torchKeep: 1, timeMargin: 3, homeHp: 1 / 4, waits: false, trollBait: false,
+  hpWeight: 1, dig: 'never', fightSpare: null, avoidMonsters: false, huntMonsters: true, drink: 'nextHit',
+  torchReveal: 5, torchKeep: 0, timeMargin: 5, homeHp: 1 / 4, waits: false, trollBait: false,
 };
 export const TEACHER_RULES: Record<TeacherName, TeacherRules> = {
   warrior: WARRIOR,
@@ -304,7 +306,7 @@ export const TEACHER_RULES: Record<TeacherName, TeacherRules> = {
 
 /** Why a teacher took its action, for tests and the measuring script. */
 export type Reason =
-  | 'leave' | 'troll' | 'drink' | 'fight' | 'wait' | 'torch' | 'pickUp' | 'target' | 'explore' | 'home' | 'stuck';
+  | 'leave' | 'troll' | 'flee' | 'drink' | 'fight' | 'wait' | 'torch' | 'pickUp' | 'target' | 'explore' | 'home' | 'stuck';
 
 export interface Teacher {
   name: TeacherName;
@@ -353,21 +355,32 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
     if (t.goingHome && here === STAIRS) return [LEAVE, 'leave'];
 
     const nextTo = (i: number) => sideNeighbours(size, i);
+    // The way back: from a tile he goes to, he must still make it out before the gate closes, and with HP left
+    // after the traps on the way (potions counted).
+    const back = wayBack(k, s.attack, r.dig === 'pickaxe' ? 'real' : r.dig);
+    const enough = (turns: number, at: number) =>
+      back.turns[at] >= 0 && turns + back.turns[at] + r.timeMargin < s.timeLeft;
+    const survives = (damage: number, at: number) => damage + back.damage[at] < s.hp + s.potions * RULES.potionHeal;
     const adjacent = k.monsters.filter((m) => nextTo(s.pos).includes(m.pos));
     const incoming = adjacent.reduce((sum, m) => sum + MONSTER_STATS[m.kind].attack, 0);
+    /** Hits he would take standing on tile `i` while the monsters act (as they stand now). */
+    const standing = (i: number) => k.monsters.reduce(
+      (sum, m) => sum + (nextTo(i).includes(m.pos) ? MONSTER_STATS[m.kind].attack : 0), 0);
     // The warrior counts his potions and only needs to stay up; the others want HP to spare without them.
     const reserve = r.fightSpare === null ? s.hp + s.potions * RULES.potionHeal : s.hp;
     const afford = (damage: number): boolean => (r.fightSpare === null
       ? damage < reserve
       : damage === 0 || reserve - damage >= r.fightSpare * s.maxHp);
-    const mayFight = (m: KnownMonster, approach = true): boolean => afford(fightDamage(m, s.attack, approach));
+    // A fight he can afford, and still get home past the traps after it.
+    const mayFight = (m: KnownMonster, approach = true, at = s.pos): boolean => {
+      const damage = fightDamage(m, s.attack, approach);
+      return afford(damage) && survives(damage, at);
+    };
     // HP weighs more the less of it he has.
     const opts: PlanOptions = {
       attack: s.attack, dig: r.dig, hpWeight: (r.hpWeight * s.maxHp) / s.hp, damageLimit: s.hp,
       mayFight: (m) => !r.avoidMonsters && mayFight(m),
     };
-    const standing = (i: number) => k.monsters.reduce(
-      (sum, m) => sum + (nextTo(i).includes(m.pos) ? MONSTER_STATS[m.kind].attack : 0), 0);
     const stepTo = (p: Plan, to: number): Action | null => {
       const f = firstStep(p, to);
       return f < 0 ? null : dirTo(size, s.pos, f);
@@ -382,15 +395,42 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
       }
     }
 
+    // Next to a slime or troll he will not fight: step to the free tile next to him where the fewest hits land,
+    // if it is better than staying. (A mobile one he will not fight is left to the plan: any step away from it
+    // means it has to step after him, and then it does not hit that turn.)
+    const mobile = (m: KnownMonster) => MONSTER_STATS[m.kind].mobile;
+    const isFoe = (m: KnownMonster) => (!r.avoidMonsters || mobile(m)) && mayFight(m, false);
+    if (adjacent.some((m) => !mobile(m) && !isFoe(m))) {
+      let best = -1;
+      let bestHits = incoming;
+      for (const n of nextTo(s.pos)) {
+        const tn = k.tiles[n];
+        if (!k.seen[n] || !isOpen(tn) || knownMonsterAt(k, n)) continue;
+        const hits = standing(n) + (tn === TRAP ? RULES.trapDamage : 0);
+        if (hits >= s.hp) continue;
+        if (hits < bestHits || (hits === bestHits && best >= 0 && back.turns[n] < back.turns[best])) {
+          best = n;
+          bestHits = hits;
+        }
+      }
+      if (best >= 0 && !adjacent.some(isFoe)) return [dirTo(size, s.pos, best), 'flee'];
+      if (best >= 0 && bestHits === 0 && incoming >= s.hp) return [dirTo(size, s.pos, best), 'flee'];
+    }
+
     // Potions.
     if (s.potions > 0) {
-      const low = r.drink === 'nextHit' ? incoming >= s.hp : s.hp * 2 < s.maxHp;
+      // The next hit: from the monsters next to him, or from one he knows of a step or two away.
+      const near = (m: KnownMonster) => {
+        const d = Math.abs((m.pos % size) - (s.pos % size)) + Math.abs(Math.floor(m.pos / size) - Math.floor(s.pos / size));
+        return d <= 2;
+      };
+      const nextHit = Math.max(incoming, ...k.monsters.filter(near).map((m) => MONSTER_STATS[m.kind].attack));
+      const low = r.drink === 'nextHit' ? nextHit >= s.hp : s.hp * 2 < s.maxHp;
       if (low) return [DRINK, 'drink'];
     }
 
     // A monster next to him: strike the one he would beat soonest, if he fights it.
-    const mobile = (m: KnownMonster) => MONSTER_STATS[m.kind].mobile;
-    const foes = adjacent.filter((m) => (!r.avoidMonsters || mobile(m)) && mayFight(m, false))
+    const foes = adjacent.filter(isFoe)
       .sort((a, b) => blows(a.hp, s.attack) - blows(b.hp, s.attack));
     if (foes.length) return [dirTo(size, s.pos, foes[0].pos), 'fight'];
 
@@ -416,12 +456,6 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
     if (itemValue(s, here, s.map.gold[s.pos]) > 0 && safeHere) return [PICK_UP, 'pickUp'];
 
     // Where to go.
-    // Time and HP for the way back: from a tile he goes to, he must still make it out before the gate closes,
-    // and with HP left after the traps on the way.
-    const back = wayBack(k, s.attack, r.dig === 'pickaxe' ? 'real' : r.dig);
-    const enough = (turns: number, at: number) =>
-      back.turns[at] >= 0 && turns + back.turns[at] + r.timeMargin < s.timeLeft;
-    const survives = (damage: number, at: number) => damage + back.damage[at] < s.hp + s.potions * RULES.potionHeal;
     if (!t.goingHome) {
       if (!enough(0, s.pos)) t.goingHome = true;
       if (r.homeHp !== null && s.potions === 0 && s.hp <= r.homeHp * s.maxHp) t.goingHome = true;

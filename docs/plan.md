@@ -47,18 +47,18 @@ A test checks the promise from CLAUDE.md: with events on and off, the same raid 
 
 - Buckets for the pinned stats, stairs compass with "here", the 5 × 5 view (19 numbers a cell), memory of 1 / 3 / 6 pairs.
 - `SAVE_VERSION` lives here or in `storage.ts` from the start.
-- **Tests:** sizes 43 / 475 / 484 and 1,002 / 1,970 / 3,422; every bucket edge; the view with a monster on an item.
+- **Tests:** sizes 43 / 475 / 484 and 1,002 / 1,970 / 3,422 (485 and 1,003 / 1,973 / 3,428 since step 5 added Wait); every bucket edge; the view with a monster on an item.
 
 ### 4. Model — `src/model.ts`
 
-- Karkulka's network with 8 outputs, softmax with temperature, Adam and SGD, sparse forward and backward.
+- Karkulka's network with 8 outputs (9 since step 5), softmax with temperature, Adam and SGD, sparse forward and backward.
 - **Tests:** gradients against finite differences; learns a toy mapping.
 
 ### 5. Teachers — `src/teachers.ts`
 
 - A shared planner over the tiles a teacher has seen this raid: shortest paths with walking, digging (at his real attack, or one blow for the pickaxe dwarf) and fight costs; re-plans every turn; time needed to walk back.
 - The six teachers as rule sets on top of the planner.
-- **Measure** over 1,000 codes per teacher: gold out, left / knocked out / locked in, turns, potions, torches, digs. This is the main tuning checkpoint for HP, monster stats, time limit and torch length. Target shape: the healer leaves almost always; the warrior earns more but is knocked out more often; the thief earns less but safely; the dwarf beats the healer; the pickaxe dwarf wastes turns when copied; the goblin in disguise loses where trolls are in sight. Settle the "Wait" question here.
+- **Measure** over 1,000 codes per teacher: gold out, left / knocked out / locked in, turns, potions, torches, digs. This is the main tuning checkpoint for HP, monster stats, time limit and torch length. Target shape: the healer leaves almost always; the warrior earns more but is knocked out more often; the thief earns less but safely; the dwarf beats the healer; the pickaxe dwarf wastes turns when copied; the goblin in disguise loses where trolls are in sight. Settle the "Wait" question here. **Settled:** Wait is the 9th action; the start is 14 HP and 2 potions (see the design).
 
 ### 6. Training and evaluation — `src/train.ts`, `src/raid.ts`, `src/raids.ts`, `src/worker.ts`
 

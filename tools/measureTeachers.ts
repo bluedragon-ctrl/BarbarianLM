@@ -5,6 +5,7 @@
  */
 import { generateDungeon } from '../src/dungeon';
 import { randomCode, rngFrom } from '../src/rng';
+import { RULES } from '../src/world';
 import { TEACHERS, TEACHER_RULES, teacherRaid, type TeacherName, type TeacherRules } from '../src/teachers';
 
 interface Row {
@@ -55,6 +56,9 @@ const avg = (n: number, of: number, digits = 1) => (n / of).toFixed(digits).padS
 
 export function main(args: string[]) {
   const count = Number(args[0] ?? 1000);
+  // Try other game numbers: --rules '{"startHp":15,"startPotions":2}'.
+  const k = args.indexOf('--rules');
+  if (k >= 0) Object.assign(RULES as Record<string, number>, JSON.parse(args[k + 1]));
   const rng = rngFrom('measure-teachers');
   const codes = Array.from({ length: count }, () => randomCode(rng));
   const rows: Row[] = [];
@@ -76,7 +80,7 @@ export function main(args: string[]) {
 }
 
 function print(count: number, rows: Row[]) {
-  console.log(`${count} dungeon codes, raid 0 each\n`);
+  console.log(`${count} dungeon codes, raid 0 each; start HP ${RULES.startHp}, potions ${RULES.startPotions}\n`);
   console.log('teacher            gold out   left  left/0   k.o. locked  turns  potions torches  blows  dug  waits wasted hp lost  beaten  k.o. if troll seen');
   for (const r of rows) {
     console.log(`${r.label.padEnd(17)} ${avg(r.gold, r.raids)}   ${pct(r.left, r.raids)}  ${pct(r.leftEmpty, r.raids)}  ` +

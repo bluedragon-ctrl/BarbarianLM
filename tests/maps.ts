@@ -41,10 +41,16 @@ export function dungeonFrom(rows: string[], code = 'TEST'): { dungeon: Dungeon; 
   return { dungeon: { code, size, tiles, wallHp, gold, stairs, rooms: [], monsters }, start };
 }
 
+/**
+ * A raid on a map from text, starting at `@`. His stats are fixed at 12 HP and 1 potion, so the rules tests do not
+ * follow the tuning of the starting numbers (`RULES`); the start itself is tested on a real dungeon.
+ */
 export function raidFrom(rows: string[]): RaidState {
   const { dungeon, start } = dungeonFrom(rows);
   const s = newRaid(dungeon);
   s.pos = start;
+  s.hp = s.maxHp = 12;
+  s.potions = 1;
   return s;
 }
 

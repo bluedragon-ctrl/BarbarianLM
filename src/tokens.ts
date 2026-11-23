@@ -28,8 +28,8 @@ function bucket(x: number, from: readonly number[]): number {
 
 /** HP: 1–3, 4–6, 7–10, 11–15, 16+ (0 never reaches the model: the trip has ended). */
 export const hpBucket = (hp: number): number => bucket(hp, [4, 7, 11, 16]);
-/** Max HP: up to 12, 13–19, 20+. */
-export const maxHpBucket = (maxHp: number): number => bucket(maxHp, [13, 20]);
+/** Max HP: up to 14 (the start), 15–19 (after vigour), 20+. */
+export const maxHpBucket = (maxHp: number): number => bucket(maxHp, [15, 20]);
 /** Attack: 2, 3, 4+. */
 export const attackBucket = (attack: number): number => bucket(attack, [3, 4]);
 /** Potions, torches: 0, 1, 2, 3. */
