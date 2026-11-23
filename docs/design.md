@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Nothing is built yet. Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator and the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -142,9 +142,12 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 
 - **Next to** means sharing a side (up, down, left or right), never a diagonal: monsters hit and step only in the 4 directions he can.
 - **Mobile:** if next to him, it hits him. Otherwise, if it **notices** him, it steps towards him; otherwise it wanders (seeded). It notices him within 3 tiles, or **5 tiles while his torch is lit** *(tune)*, and only with a clear line of sight (below).
+  - **Stepping towards him:** by a shortest path over tiles monsters may step on (other monsters ignored, since they move). Of its free side neighbours it takes the one nearest him, ties in the order up, right, down, left. If none is nearer (no way to him, or the way is taken by another monster), it waits.
+  - **Wandering:** one draw from the monster stream per wandering monster per turn: up, right, down, left or stay, one in 5 each. If that tile is not free for it, it stays.
 - **Immobile:** hits him if he is next to it; never moves.
+- **Acting order:** the order the generator placed them in, fixed for the raid. Each acts on what the ones before it left, so the first to move takes a tile two want.
 - **Where monsters may step:** floor and any item (in a corridor there is no way round). Never onto spike traps, the stairs (so the way out is never blocked), walls, him or another monster. They never pick anything up.
-- **Beaten:** it drops its gold on its tile (rats too: a rat's pile is 1). On bare floor that makes a new pile; on gold the amounts add up (a heap from 6). If the tile holds another item (potion, torch, strength, vigour), the gold goes to the nearest empty floor tile, searched in a fixed order (up, right, down, left, then further out), so nothing is lost and the result is deterministic.
+- **Beaten:** it drops its gold on its tile (rats too: a rat's pile is 1). On bare floor that makes a new pile; on gold the amounts add up (a heap from 6). If the tile holds another item (potion, torch, strength, vigour), the gold goes to the nearest empty floor tile, searched in a fixed order (up, right, down, left, then further out), so nothing is lost and the result is deterministic. "Nearest" is breadth-first over open tiles from the monster's tile, and "empty" means bare floor: gold never lands on stairs, traps or other items, but may land under him or another monster.
 
 ### The barbarian
 
@@ -153,7 +156,7 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 | HP / max HP | 12 / 12 | 0 HP: knocked out, all gold lost |
 | Attack | 2 | Damage to monsters and walls per bump |
 | Potions | 1 | Drinking heals 6 *(tune)*, up to max HP |
-| Torches | 1 | Lighting one gives 15 turns of light *(tune)* |
+| Torches | 1 | Lighting one gives 15 turns of light *(tune)*, the turn it is lit included |
 | Gold | 0 | Counts only if he leaves |
 | Time | 150 turns *(tune)* | At 0 the gate closes: he is locked in, the keeper lets him out in the morning and keeps the gold |
 
@@ -162,12 +165,12 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 | Token | Effect |
 | --- | --- |
 | Up, Right, Down, Left | **Bump:** walk onto an open tile; attack a monster there; damage a wall there; bedrock: nothing |
-| Pick up | Takes what lies on his tile; on bare floor, nothing |
+| Pick up | Takes what lies on his tile; on bare floor (or the stairs, or a trap), nothing; a potion or torch with that one full in his pack, nothing |
 | Drink | Drinks a potion; with none, nothing |
 | Light torch | Lights a torch; with none, or one already burning, nothing |
 | Leave | Works only on the stairs: the trip ends at once and the gold is his. Elsewhere, nothing |
 
-Every action, useful or not, takes one turn.
+Every action, useful or not, takes one turn. An action that does nothing is a **wasted action**; these are exactly the ones "Block impossible actions" blocks. Digging is never wasted: every blow takes HP off the wall.
 
 **Block impossible actions** (a checkbox on Raid alone and Many raids, off by default): before an action is sampled, the ones that would do nothing get probability 0 and the rest are scaled back up to 1. Blocked: picking up on bare floor, or a potion or torch with a full pack; drinking with no potions; lighting a torch with none or one burning; Leave off the stairs; bumping bedrock. Wasteful but possible actions stay allowed (drinking at full HP; bumping a stone wall is digging). The bars still show what the model wanted, with blocked actions struck through. Lessons and practice never block, so he still has to learn not to waste turns, and Many raids can compare wasted actions with the box on and off.
 
@@ -177,7 +180,9 @@ Every action, useful or not, takes one turn.
 2. Traps: if he stepped onto a spike trap, it hits him.
 3. The lit torch burns down a turn; time goes down a turn.
 4. Each monster acts, in a fixed order.
-5. If his HP is 0: knocked out. If time is 0: locked in.
+5. If his HP is 0: knocked out. If time is 0: locked in. Knocked out wins when both happen.
+
+HP never drops below 0. A trap that knocks him out at step 2 does not end the turn early: the torch, time and monsters still go, and the trip ends at step 5. The model is never asked for an action after the end.
 
 ### Sight and torches
 
@@ -193,7 +198,9 @@ Every action, useful or not, takes one turn.
 | (±2, ±1), (±1, ±2) | either of the two cells next to the line (one is enough) |
 
   A wall cell itself is seen when the line reaches it, so he sees the wall that blocks him.
+- **Exactly:** for a line of n steps (n = the larger of |dx| and |dy|), at each step k between the ends the line sits at k/n of the way; on the axis where that is not a whole tile it takes the nearest tile, or both when it is exactly halfway (one open is enough at that step). Cells off the map are dark. "Within a square of r tiles" means at most r along each axis.
 - Monsters notice him by the same rule within a square of 3 tiles around them, or 5 while his torch is lit. So in the dark a goblin can notice him from 3 tiles while he sees only 1: that is the missing information.
+- **The torch** is lit while it has turns left. Step 3 of the turn order burns one off, the turn it is lit included, so a 15-turn torch is lit for the monsters' moves and his views on 14 turns, the one he lights it in included, and goes out at step 3 of the 15th. He can light a new one on the turn after it goes out.
 
 ### End of a trip and score
 
