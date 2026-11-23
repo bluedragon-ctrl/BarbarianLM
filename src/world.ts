@@ -4,7 +4,7 @@
  * down a turn and time goes down a turn; 4. each monster acts, in order; 5. knocked out at 0 HP, else locked in at
  * time 0. No DOM here, and no randomness but the monster stream passed to `step`.
  */
-import { DX, DY, sideNeighbours, type Dungeon } from './dungeon';
+import { DX, DY, sideNeighbours, walkingDistances, type Dungeon } from './dungeon';
 import { monstersAct, type MonsterHit, type MonsterTrapped } from './monsters';
 import type { Rng } from './rng';
 import { viewOf, type ViewCell } from './sight';
@@ -64,6 +64,11 @@ export interface RaidState {
   turn: number;
   /** In their fixed acting order; beaten ones are removed. */
   monsters: Monster[];
+  /**
+   * Walking distance from the stairs to every tile on the raid's own map (monsters and traps do not block), for
+   * the stairs compass and the way back. Kept up to date by `step`, which recomputes it when a wall is dug through.
+   */
+  stairsDist: number[];
   ended: TripEnd | null;
 }
 
@@ -92,9 +97,10 @@ export interface StepResult {
 }
 
 export function newRaid(d: Dungeon): RaidState {
+  const map: RaidMap = { size: d.size, tiles: d.tiles.slice(), wallHp: d.wallHp.slice(), gold: d.gold.slice(), stairs: d.stairs };
   return {
     code: d.code,
-    map: { size: d.size, tiles: d.tiles.slice(), wallHp: d.wallHp.slice(), gold: d.gold.slice(), stairs: d.stairs },
+    map,
     pos: d.stairs,
     hp: RULES.startHp,
     maxHp: RULES.startHp,
@@ -106,6 +112,7 @@ export function newRaid(d: Dungeon): RaidState {
     timeLeft: RULES.timeLimit,
     turn: 0,
     monsters: d.monsters.map((m) => ({ ...m })),
+    stairsDist: walkingDistances(map, map.stairs),
     ended: null,
   };
 }
@@ -196,6 +203,7 @@ export function step(s: RaidState, action: Action, monsterRng: Rng): StepResult 
       if (map.wallHp[to] === 0) {
         map.tiles[to] = FLOOR;
         r.dugThrough = true;
+        s.stairsDist = walkingDistances(map, map.stairs);
       }
     } else if (map.tiles[to] !== BEDROCK) {
       r.did = 'walk';

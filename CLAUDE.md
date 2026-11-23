@@ -14,6 +14,7 @@ npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build to dist/
 npm run dungeon -- CODE        # print a dungeon as text
 npm run measure:dungeons -- N  # generator numbers over N codes (default 1,000)
+npm run measure:compass -- N   # stairs-compass distances over N codes
 ```
 
 Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
@@ -28,6 +29,7 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/world.ts` | A raid's state, `step(state, action, monsterRng)` in the design's turn order, `allowedActions`, his view |
 | `src/sight.ts` | The one sight rule for him and the monsters, his 5 × 5 view with dark cells |
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path, wander |
+| `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, `SAVE_VERSION` |
 
 ## Starting point
 

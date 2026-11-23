@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator and the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`) and the tokens (`src/tokens.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -45,6 +45,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | A torch shows more of the dungeon for a while, and he has few of them | Retrieval or a search tool: pays a cost to bring more into the context |
 | Actions that cannot work (picking up from bare floor, drinking with no potions, bumping bedrock) | Invalid outputs; with "Block impossible actions", constrained decoding |
 | The stairs compass | A hint in the prompt |
+| Each memory slot has its own inputs, so the newest pair always sits next to the view now | Position information: a model must be told where in the context each token is |
 | Lessons from a teacher | Pretraining on example text |
 | Choice of teacher | Training data and the values of whoever made it |
 | The goblin in disguise as a teacher | Data poisoning |
@@ -234,6 +235,16 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
 
 HP buckets are absolute so that "can I take this hit?" can be read straight from them against the monsters' attacks.
 
+**How the tokens are built** (`src/tokens.ts`):
+
+- **Bucket edges** are as in the table; a value below the first bucket counts in it (HP 0 never reaches the model, since the trip has ended). The torch reads its turns left after step 3 of the turn order, the lit views still to come with this one included: off at 0, low at 1–3, lit at 4+. So a fresh torch reads lit on 12 views, then low on 3.
+- **Compass direction:** the nearest of the 8 compass directions to the straight line from his tile to the stairs, by angle (sectors of 45°, north up the screen). Sector edges lie at tan 22.5° = √2 − 1, which no whole-tile offset hits, so there are no ties. "Here" when he stands on the stairs, and then no distance.
+- **Compass distance:** walking steps to the stairs over the raid's own map (dug walls count as floor; monsters and traps do not block): **near** under 10, **far** 10–19, **very far** 20+. Walking, not straight-line, because what he needs to know is how long the way back takes: over 1,000 codes the walk is 1.8 times the straight line on average and at least twice it on 28% of open tiles (`npm run measure:compass`). These edges split open tiles 29% / 40% / 30%, and they line up with the time buckets: very far with under 20 turns left means he cannot make it. The raid keeps these distances in its state (`stairsDist`), worked out at the start and again only when a wall is dug through, so the teachers' way back uses the same numbers.
+- **Order of the inputs:** pinned (HP, max HP, attack, potions, torches, torch, gold, time, compass: 9 directions then near / far / very far), then the remembered pairs from oldest to newest, then the view now. A view is its 25 cells row by row from the top-left, each 17 kinds then wounded then rich. A pair is its present flag, its view, then the action he took on it (one-hot over 8).
+- **Memory:** after each action, the view it was taken on and the action join the strip; once it is full the oldest pair drops out. The newest pair always sits in the last slot, next to the view now, so a slot always means the same number of turns ago. Slots not yet filled at the start of a raid are all zero, present flag included.
+- **Sparse:** every input is 0 or 1, so an input is passed as the list of the ones that are 1, in increasing order: 9 or 10 pinned, about 27 per view, 29 per pair: about 115 for the medium memory.
+- **Save version:** `SAVE_VERSION` in `src/tokens.ts`, bumped whenever these sizes or this order change.
+
 ### Network
 
 One hidden layer, 48 units, tanh, softmax over 8 actions (as in Karkulka, hand-written, no ML library).
@@ -355,6 +366,8 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 
 ### Open questions
 
-- Is a "Wait" action needed (to let a monster come to him)? Decide in step 5 from what the teachers want. Until then a wasted action (drinking with no potions) is his only wait, and "Block impossible actions" takes it away. Adding Wait changes the output size, so it must come before training and saves.
+- Is a "Wait" action needed (to let a monster come to him)? Decide in step 5 from what the teachers want. Until then a wasted action (drinking with no potions) is his only wait, and "Block impossible actions" takes it away. Adding Wait changes the output size, so it must come before training and saves. Every token size follows from the number of actions, so it is one constant: each pair grows to 485 and the inputs to 1,003 / 1,973 / 3,428.
+- Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
+- The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
