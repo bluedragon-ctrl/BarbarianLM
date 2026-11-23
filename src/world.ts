@@ -5,11 +5,11 @@
  * time 0. No DOM here, and no randomness but the monster stream passed to `step`.
  */
 import { DX, DY, sideNeighbours, type Dungeon } from './dungeon';
-import { monstersAct, type MonsterHit } from './monsters';
+import { monstersAct, type MonsterHit, type MonsterTrapped } from './monsters';
 import type { Rng } from './rng';
 import { viewOf, type ViewCell } from './sight';
 import {
-  BEDROCK, FLOOR, GOLD, POTION, STAIRS, STRENGTH, TORCH, TRAP, VIGOUR, WALL, isItem, isOpen, monsterGold,
+  BEDROCK, FLOOR, GOLD, POTION, STAIRS, STRENGTH, TORCH, TRAP, TRAP_DAMAGE, VIGOUR, WALL, isItem, isOpen, monsterGold,
   type Monster, type Tile,
 } from './tiles';
 
@@ -35,9 +35,10 @@ export const RULES = {
   /** At most this many potions, and this many torches, in his pack. */
   packMax: 3,
   potionHeal: 6,
-  torchTurns: 15,
+  /** A torch burns one off a turn, the turn it is lit included: 16 gives 15 lit turns. */
+  torchTurns: 16,
   vigourHp: 4,
-  trapDamage: 2,
+  trapDamage: TRAP_DAMAGE,
   timeLimit: 150,
 } as const;
 
@@ -55,7 +56,7 @@ export interface RaidState {
   attack: number;
   potions: number;
   torches: number;
-  /** Turns of light left on the burning torch; lit while above 0. */
+  /** Turns of light left on the burning torch, this one included; lit while above 0. */
   torchLeft: number;
   gold: number;
   timeLeft: number;
@@ -83,6 +84,8 @@ export interface StepResult {
   dugThrough: boolean;
   trapDamage: number;
   hits: MonsterHit[];
+  /** Chasing monsters that stepped onto spike traps. */
+  monstersTrapped: MonsterTrapped[];
   /** The torch went out this turn. */
   torchOut: boolean;
   ended: TripEnd | null;
@@ -167,7 +170,7 @@ function dropGold(map: RaidMap, at: number, amount: number): number {
 export function step(s: RaidState, action: Action, monsterRng: Rng): StepResult {
   if (s.ended) throw new Error(`The trip has already ended (${s.ended})`);
   const r: StepResult = {
-    action, did: 'nothing', goldGained: 0, dugThrough: false, trapDamage: 0, hits: [], torchOut: false, ended: null,
+    action, did: 'nothing', goldGained: 0, dugThrough: false, trapDamage: 0, hits: [], monstersTrapped: [], torchOut: false, ended: null,
   };
   const { map } = s;
   const wasLit = torchLit(s);
@@ -251,7 +254,9 @@ export function step(s: RaidState, action: Action, monsterRng: Rng): StepResult 
   s.timeLeft--;
 
   // 4. The monsters act.
-  r.hits = monstersAct(s, monsterRng);
+  const acted = monstersAct(s, monsterRng);
+  r.hits = acted.hits;
+  r.monstersTrapped = acted.trapped;
 
   // 5. The end of the trip?
   if (s.hp <= 0) s.ended = 'knockedOut';
