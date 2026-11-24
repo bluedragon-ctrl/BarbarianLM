@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), and the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`), and the first UI step: the shell, tabs, board and settings (`src/ui/`, `src/marks.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -10,7 +10,7 @@ A browser game that teaches how language models work: a barbarian learns to raid
 
 - **Audience:** older kids and adults without a technical background who are curious about AI. A final tab serves technical users.
 - **Setting:** a desktop browser, classroom projector or laptop. The UI is in English.
-- **Tone:** nothing graphic. Monsters that lose turn into coins; the barbarian is "knocked out" and carried out by the dungeon keeper.
+- **Tone:** not horror, but not for small children either. Monsters that lose leave a faint pool and their coins; the barbarian is "knocked out" and carried out by the dungeon keeper. No gore.
 - **A showcase, not a course.** Karkulka is the entry-level lesson; Barbarian is meant to be fun to watch and play with. Explanation stays light: short captions, and an "AI idea" card only for the main ideas (see [Explanation](#explanation-light-touch)). The fun parts (his thoughts, hidden dungeon events, the skald's saga) carry the ideas on their own.
 
 ## Core concept
@@ -67,6 +67,10 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | The skald's saga after a raid: true parts from the raid, made-up parts by boldness | Hallucination: invented details told as confidently as facts |
 | The skald borrows events placed in this dungeon that he never met | The most believable hallucinations come from the same world as the facts: plausible, but not what happened |
 | The skald's boasts: a true fight told with inflated numbers ("a dozen goblins" after two) | A hallucination built on a real fact: right in outline, wrong in the detail |
+| The board: the whole dungeon for you, a 5 × 5 window of it for him | What a person sees of a conversation against the tokens the model reads |
+| The torch's glow growing his lit square from 3 × 3 to 5 × 5, shrinking as it burns low, and the smoke when it goes out | Retrieved context fills the window for a while, then is gone |
+| Pools and prints on the board, never in his view | Things in the app around a model that are not in its input: they change nothing it does |
+| Walking him yourself on the Dungeon tab | You choose each next token, the job the model will learn |
 
 ## Dungeon and rules
 
@@ -498,10 +502,39 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 
 ## Visuals
 
-- Original symbolic SVG shapes drawn in code; no tile packs, no resemblance to existing games.
-- **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP).
-- The user sees the whole dungeon; dark cells are shown dimmed so it is clear what he does not see.
-- Monsters show their HP as a small bar plus a number; wounded ones also change shape (a crack or bandage), since the model only knows healthy / wounded.
+- Original symbolic SVG shapes drawn in code (`src/ui/symbols.ts`); no tile packs, no resemblance to existing games.
+- **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP). Each tile kind has its own shape: brick lines for stone, a zigzag crack for cracked walls, hatching for bedrock, steps and an arrow for the stairs, three spikes on a plate for a trap, a few coins or a coin heap (with the amount) for gold, a round blue flask, a stick torch, a sword for strength, a green heart with a plus for vigour. Monsters: a rat, a goblin head with pointed ears, a slime blob, a troll with tusks.
+- The user sees the whole dungeon; cells he does not see are **dimmed and hatched** (so not by shade alone), which is what the model never gets.
+- Monsters show their HP as a small bar plus a number, and the gold they carry as a coin and a number. Wounded ones wear a **bandage** and their bar turns amber, since the model only knows healthy / wounded; rich ones carry a **loot sack**.
+- His stats sit above the board: HP (red, with "(low)", at 4 or less), attack, potions, torches (and lit turns left), gold, time left.
+
+**Light and the torch** (chosen with the owner for step 8.1):
+
+- A soft light sits on him. In the dark it is pale and small, with a dashed square round his 3 × 3; with a lit torch it is a warm glow with a solid square round the 5 × 5 he now sees, and a small torch in his hand. A dashed gold frame always marks his 5 × 5 view: what the model reads, lit or not.
+- The torchlight **flickers** gently, faster and smaller while the torch burns low (3 lit views or fewer, the "burning low" token). When it goes out a puff of smoke rises and the light shrinks back to 3 × 3. Flicker is a setting (on) and never runs with reduced motion.
+
+**Fight marks** (chosen with the owner):
+
+- Where a monster is beaten, its **coins scatter** out and land on its gold pile, and a **faint pool** stays on the floor for the rest of the raid: dark maroon for rats, goblins and trolls (duller and darker than the danger red, and faint), teal for a slime.
+- After he walks through a pool, his next **3 steps leave prints** of that colour, fainter each step and turned the way he walked (`src/marks.ts`). A new pool starts the count again.
+- Pools and prints are only on the board, never in his view: they change nothing he does. "Pools and prints" is a setting (on).
+- Considered and left for later: footprints of every step (or only the steps in his memory strip, as a picture of the context window), and scuff marks after a fight.
+
+**The UI shell** (step 8.1): tabs 1. Dungeon, 2. Lessons, 3. Raid alone, 4. Practice, 5. Many raids, 6. Inside the model, and Settings. The later tabs say what they will hold until their steps are built. The Dungeon tab shows the code (new, or type one), the gold and monsters in it, a key to the symbols, and **Walk him yourself**: arrow keys (or buttons) walk, attack and dig; P picks up, D drinks, T lights a torch, L leaves, Space waits. Your walk is its own raid, `you`, with streams of its own (`code|you|monsters`, `code|you|story`, and new event spots `code|events|you`), so it never shifts a raid of his. Events met show their pop-up word over him.
+
+**Settings and defaults** (step 8.1; kept for the session until save and links come in step 8.5):
+
+| Setting | Default |
+| --- | --- |
+| His memory | Medium (3 pairs) |
+| Lessons and practice | In the dungeon on screen; "A new dungeon every raid" is the other choice |
+| Events in the dungeon | On (the code keeps them off unless asked) |
+| New places every raid | On |
+| Show events (for testing) | Off |
+| His thoughts on a raid alone | On |
+| Dim what he cannot see | On |
+| Torchlight flickers | On |
+| Pools and prints | On |
 
 ## Scope
 
@@ -530,7 +563,7 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
 - **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug.
-- Should lessons and practice default to one dungeon (the code on screen) or a new one each raid? In one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids. Step 8 picks the default; this doc suggests the code on screen, with "new dungeon every raid" as a setting.
+- **Settled in step 8.1:** lessons and practice default to the dungeon code on screen, with "A new dungeon every raid" as a setting (in one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids). Events are on by default in the UI.
 - The monsters-beaten judge still adds few fights of its own. The champion's lessons do more: his student beats 5.5 monsters before practice, against 4.8 for the healer's (BCDEFG). Paying per blow struck is still untried.
 - **Events (step 7):** the `deadEnd` kinds are placed in only about 8% of dungeons: few spots land near a corridor tip. Widen the place (more steps from the tip), or let spot-picking favour rare places? The cold spring is in almost every dungeon and heals in about a third of raids; is +3 HP too kind for a hidden event?
 - **Thoughts in long fights:** every hit gets a thought, so a five-blow fight with a slime is five "Ow!"s in a row. Keep (it reads like a fight), or let a hit from the same monster as last turn keep quiet?
