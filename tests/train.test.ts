@@ -286,6 +286,20 @@ describe('the worker job', () => {
     expect((raids[1] as Extract<WorkerResponse, { type: 'raidsDone' }>).counts.raids).toBe(LOOP.chunk + 2);
   });
 
+  it('plays the teacher on the same raids as his, with events on for him only', () => {
+    const plan = { code: 'W', count: 3 };
+    const msgs = run({ kind: 'raids', model: model(), plan, temperature: 0.5, block: false, events: { newSpots: false }, teacher: 'healer' });
+    const done = msgs.at(-1) as Extract<WorkerResponse, { type: 'raidsDone' }>;
+    expect(done.counts.raids).toBe(3);
+    const want = newCounts();
+    for (let n = 0; n < 3; n++) countRaid(want, teacherRaid(generateDungeon('W'), 'healer', n));
+    expect(done.teacherCounts).toEqual(want);
+    const alone = run({ kind: 'raids', model: model(), plan, temperature: 0.5, block: false, events: { newSpots: false } });
+    expect((alone.at(-1) as Extract<WorkerResponse, { type: 'raidsDone' }>).teacherCounts).toBeUndefined();
+    expect((alone.at(-1) as Extract<WorkerResponse, { type: 'raidsDone' }>).counts).toEqual(done.counts);
+    expect(run({ kind: 'raids', model: model(), plan, temperature: 1, block: false, teacher: 'nobody' as never }).at(-1)!.type).toBe('error');
+  });
+
   it('tests first only where there is no test at that point yet, and tags practice tests and scores', () => {
     const m = model();
     const first = run({ kind: 'lessons', model: m, stats: newStats(), count: 1, seed: 1, teacher: 'healer', dungeon: 'FIRST' });

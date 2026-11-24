@@ -5,7 +5,7 @@ import type { TeacherTests, TrainStats, WorkerRequest, WorkerResponse } from './
 
 export type JobResult =
   | { model: Model; stats: TrainStats; adam?: Adam }
-  | { counts: RaidCounts }
+  | { counts: RaidCounts; teacherCounts?: RaidCounts }
   | { teachers: TeacherTests };
 
 /** Run one job in a Web Worker; `cancel` stops it and keeps nothing. */
@@ -22,7 +22,7 @@ export function runInWorker(
       if (msg.type === 'progress') return onProgress(msg);
       worker.terminate();
       if (msg.type === 'done') res({ model: msg.model, stats: msg.stats, adam: msg.adam });
-      else if (msg.type === 'raidsDone') res({ counts: msg.counts });
+      else if (msg.type === 'raidsDone') res({ counts: msg.counts, teacherCounts: msg.teacherCounts });
       else if (msg.type === 'teachersDone') res({ teachers: msg.teachers });
       else rej(new Error(msg.message));
     };

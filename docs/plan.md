@@ -10,7 +10,7 @@ Every random number comes from `rng.ts` (Karkulka's mulberry32 and FNV hash), on
 | --- | --- | --- |
 | Dungeon | `code` | Layout, contents, monster flags |
 | Event spots | `code|events` (fixed) or `code|events|n` (new every raid); their kinds from the same label plus `|kinds` | Where the hidden events are, and which |
-| Actions | `code|n|act` | Sampling his next action (raid alone numbers count from 1 per code; test raids are 0–19) |
+| Actions | `code|n|act` | Sampling his next action (raid alone numbers count from 1 per code; test raids are 0–19; many raids in the dungeon on screen are 0, 1, 2…, in new dungeons raid 0 of codes from `codes|many`) |
 | Monsters | `code|n|monsters` | Wandering |
 | Events | `code|n|story` | Event chances and which version happens |
 | Thoughts | `code|n|thoughts` | Thought lines |
@@ -85,7 +85,7 @@ Built in a few PRs:
 1. Shell, tabs, board with original SVG symbols (tiles, monsters with HP and gold, dimmed dark cells, wounded shape), settings. **Done:** plus the torchlight (glow, flicker, burning low, smoke when it goes out), coins scattering, pools and prints, and walking him yourself on the Dungeon tab (see "Visuals" in the design).
 2. Lessons and Practice with progress charts. **Done:** teacher and judge pickers with the teachers' numbers on his test raids, counts, run and Stop (which throws the round away), the outcome and judge's score charts, and watching a lesson on the board (see "Lessons and Practice" under Visuals in the design).
 3. Raid alone: action bars (blocked ones struck through), memory strip, thought bubble, saga, speed and autoplay, damage and coin pop-ups. **Done:** on the main thread through `Raid` (with `peek` for the bars), raid numbers counting up per code from 1 with Replay, the boldness dial (0.5 by default, 0.1–2.5) and the block option, the strip with the pinned tokens in words (`pinnedWords`), and the saga in the panel with Sing it again (see "Raid alone" under Visuals in the design).
-4. Many raids, Inside the model, AI idea cards.
+4. Many raids, Inside the model, AI idea cards. **Done:** Many raids in the worker (100 or 1,000, in the dungeon on screen or in the same new dungeons each run, at the Raid alone boldness and block option) with his main teacher on the same raids, as ending bars and a table; a very light Inside the model (what goes in with its counts, 48 hidden, 9 outputs, the parameter count, and the raid on screen's chances with the inputs that pushed the likeliest action, each left out in turn); twelve AI idea cards behind small "AI" badges, opened as popovers, pulsing only the first time each is relevant (see "Explanation" and "Visuals" in the design).
 5. Save and links, hall of fame, dungeon of the day.
 
 ### 9. Tune and polish

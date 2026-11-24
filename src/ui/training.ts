@@ -3,6 +3,7 @@
  * and the charts of how he does on his test raids, with his teacher's numbers on the same raids next to his.
  */
 import type { Dungeon } from '../dungeon';
+import type { CardKey } from '../explain';
 import { parameterCount } from '../model';
 import type { RaidSummary } from '../raids';
 import { TEACHERS, TEACHER_LABELS, type Reason, type TeacherName, type TeacherTurn } from '../teachers';
@@ -68,6 +69,8 @@ export interface TrainingHost {
   startWatch(): void;
   stopWatch(): void;
   startOver(): void;
+  /** An "AI" badge. */
+  card(key: CardKey, place?: string): Node;
 }
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -140,13 +143,13 @@ export function lessonsPanel(host: TrainingHost): (HTMLElement | null)[] {
     h('h2', {}, 'Lessons'),
     h('p', { class: 'caption' }, 'A teacher raids the dungeon. At every turn he guesses the teacher\'s next action, sees the real one and learns a little.'),
     h('div', { class: 'group' },
-      h('h3', {}, 'Who teaches him?'),
+      h('h3', {}, 'Who teaches him? ', host.card('lessons', 'lessons')),
       h('div', { class: 'pick-list', role: 'radiogroup', 'aria-label': 'Teacher' }, ...TEACHERS.map((t) => {
         const n = tests?.[t];
         return h('label', { class: `pick ${host.teacher === t ? 'chosen' : ''}` },
           h('input', { type: 'radio', name: 'teacher', checked: host.teacher === t, disabled: busy, onchange: () => host.choose({ teacher: t }) }),
           h('span', { class: 'pick-body' },
-            h('span', { class: 'pick-head' }, h('strong', {}, TEACHER_LABELS[t]), h('span', { class: 'pick-num' }, n ? numbers(n) : '…')),
+            h('span', { class: 'pick-head' }, h('span', {}, h('strong', {}, TEACHER_LABELS[t]), t === 'pickaxe' ? ' ' : null, t === 'pickaxe' ? host.card('pickaxe', 'teacher') : null), h('span', { class: 'pick-num' }, n ? numbers(n) : '…')),
             h('small', { class: 'muted' }, TEACHER_LINES[t])));
       })),
       h('p', { class: 'muted' }, `The teachers' numbers are their own raids on his test raids (${testsWhere(host)}).`)),
@@ -185,7 +188,7 @@ export function practicePanel(host: TrainingHost): (HTMLElement | null)[] {
     h('h2', {}, 'Practice'),
     h('p', { class: 'caption' }, 'He raids on his own and a judge scores each raid. Actions from raids that scored better than usual become more likely; worse, less likely.'),
     h('div', { class: 'group' },
-      h('h3', {}, 'Who judges?'),
+      h('h3', {}, 'Who judges? ', host.card('practice', 'practice')),
       h('div', { class: 'pick-list', role: 'radiogroup', 'aria-label': 'Judge' }, ...JUDGES.map((j) =>
         h('label', { class: `pick ${host.judge === j ? 'chosen' : ''}` },
           h('input', { type: 'radio', name: 'judge', checked: host.judge === j, disabled: busy, onchange: () => host.choose({ judge: j }) }),

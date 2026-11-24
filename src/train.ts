@@ -5,7 +5,7 @@
  */
 import { generateDungeon, type Dungeon } from './dungeon';
 import { adamStep, clearGrads, createAdam, imitationGrad, policyGrad, sgdStep, zeroGrads, type Adam, type Model, type Grads } from './model';
-import { Raid, memoryPairs, type RaidRecord } from './raid';
+import { Raid, memoryPairs, raid, type EventOptions, type RaidRecord } from './raid';
 import { codesFrom, countRaid, manyRaids, newCounts, raidsOf, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
 import { mulberry32, randomCode, shuffle, type Rng } from './rng';
 import { MONSTER_STATS, type MonsterKind } from './tiles';
@@ -333,16 +333,20 @@ interface JobCommon { model: Model; stats: TrainStats; count: number; seed: numb
 export type WorkerRequest =
   | (JobCommon & { kind: 'lessons'; teacher: TeacherName; adam?: Adam })
   | (JobCommon & { kind: 'practice'; judge: Judge })
-  | { kind: 'raids'; model: Model; plan: RaidPlan; temperature: number; block: boolean; events?: boolean }
+  /**
+   * Many raids: his raids of the plan, and with `teacher` that teacher's raids of the same dungeons and raid numbers
+   * (as in its lessons: no events), raid by raid, so the progress has both.
+   */
+  | { kind: 'raids'; model: Model; plan: RaidPlan; temperature: number; block: boolean; events?: boolean | EventOptions; teacher?: TeacherName }
   /** The teachers' numbers on the test raids (in `dungeon`, or the fixed codes). */
   | { kind: 'teachers'; teachers: readonly TeacherName[]; dungeon?: string };
 
 export type TeacherTests = Partial<Record<TeacherName, RaidSummary>>;
 
 export type WorkerResponse =
-  | { type: 'progress'; done: number; total: number; stats?: TrainStats; counts?: RaidCounts; teachers?: TeacherTests }
+  | { type: 'progress'; done: number; total: number; stats?: TrainStats; counts?: RaidCounts; teacherCounts?: RaidCounts; teachers?: TeacherTests }
   | { type: 'done'; model: Model; stats: TrainStats; adam?: Adam }
-  | { type: 'raidsDone'; counts: RaidCounts }
+  | { type: 'raidsDone'; counts: RaidCounts; teacherCounts?: RaidCounts }
   | { type: 'teachersDone'; teachers: TeacherTests }
   | { type: 'error'; message: string };
 
@@ -354,11 +358,19 @@ export type WorkerResponse =
 export function runJob(req: WorkerRequest, post: (msg: WorkerResponse) => void): void {
   try {
     if (req.kind === 'raids') {
+      if (req.teacher && !TEACHERS.includes(req.teacher)) throw new Error(`No teacher called ${req.teacher}`);
       const total = 'code' in req.plan ? req.plan.count : req.plan.codes.length;
-      const counts = manyRaids(req.model, req.plan, { temperature: req.temperature, block: req.block, events: req.events }, (_r, c) => {
-        if (c.raids % LOOP.chunk === 0 && c.raids < total) post({ type: 'progress', done: c.raids, total, counts: { ...c } });
-      });
-      post({ type: 'raidsDone', counts });
+      const options = { temperature: req.temperature, block: req.block, events: req.events };
+      const counts = newCounts();
+      const teacher = req.teacher ? newCounts() : undefined;
+      for (const [d, n] of raidsOf(req.plan)) {
+        countRaid(counts, raid(req.model, d, n, options));
+        if (teacher) countRaid(teacher, teacherRaid(d, req.teacher!, n));
+        if (counts.raids % LOOP.chunk === 0 && counts.raids < total) {
+          post({ type: 'progress', done: counts.raids, total, counts: { ...counts }, teacherCounts: teacher && { ...teacher } });
+        }
+      }
+      post({ type: 'raidsDone', counts, teacherCounts: teacher });
       return;
     }
     if (req.kind === 'teachers') {
