@@ -14,7 +14,7 @@ import data from './data/events.json';
 import { depths, roomTiles, sideNeighbours, walkingDistances, type Dungeon } from './dungeon';
 import { rngFrom, shuffle, type Rng } from './rng';
 import { seenTiles, squareDistance } from './sight';
-import { FLOOR, MONSTER_STATS, TRAP, isOpen } from './tiles';
+import { FLOOR, MONSTER_STATS, TRAP, isOpen, type MonsterKind } from './tiles';
 import { RULES, torchLit, type RaidState } from './world';
 
 /** Places the code knows; a kind's `fits` must be one of them. */
@@ -57,7 +57,7 @@ export interface EventKind {
 }
 
 type Lines = string[];
-type ByMonster = Record<'rat' | 'goblin' | 'slime' | 'troll', Lines>;
+type ByMonster = Record<MonsterKind, Lines>;
 
 /** His thought lines (see `thoughts.ts`): `{a}`/`{A}` is the action word, `{dir}` where something is. */
 export interface ThoughtLines {

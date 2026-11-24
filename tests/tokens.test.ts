@@ -21,31 +21,31 @@ function expectBuckets(f: (x: number) => number, ranges: [number, number][]) {
 }
 
 describe('sizes', () => {
-  it('pinned 43, view 475, pair 485', () => {
-    expect(PINNED_SIZE).toBe(44);
-    expect(PINNED_GROUPS.map(([, n]) => n)).toEqual([5, 3, 3, 4, 4, 3, 5, 5, 12]);
-    expect(VIEW_KINDS).toBe(17);
-    expect(CELL_SIZE).toBe(19);
-    expect(VIEW_INPUTS).toBe(475);
-    expect(PAIR_SIZE).toBe(485);
+  it('pinned 45, view 500, pair 510', () => {
+    expect(PINNED_SIZE).toBe(45);
+    expect(PINNED_GROUPS.map(([, n]) => n)).toEqual([6, 3, 3, 4, 4, 3, 5, 5, 12]);
+    expect(VIEW_KINDS).toBe(18);
+    expect(CELL_SIZE).toBe(20);
+    expect(VIEW_INPUTS).toBe(500);
+    expect(PAIR_SIZE).toBe(510);
     expect(ACTIONS).toBe(9);
   });
 
-  it('inputs 1,004 / 1,974 / 3,429 for short, medium and long memory', () => {
+  it('inputs 1,055 / 2,075 / 3,605 for short, medium and long memory', () => {
     expect(MEMORY_SIZES).toEqual({ short: 1, medium: 3, long: 6 });
-    expect(inputSize(MEMORY_SIZES.short)).toBe(1004);
-    expect(inputSize(MEMORY_SIZES.medium)).toBe(1974);
-    expect(inputSize(MEMORY_SIZES.long)).toBe(3429);
+    expect(inputSize(MEMORY_SIZES.short)).toBe(1055);
+    expect(inputSize(MEMORY_SIZES.medium)).toBe(2075);
+    expect(inputSize(MEMORY_SIZES.long)).toBe(3605);
   });
 
   it('the save version goes with this layout: bump it when a size changes', () => {
     const layout = [PINNED_SIZE, VIEW_INPUTS, PAIR_SIZE, ACTIONS, ...Object.values(MEMORY_SIZES)];
-    expect({ SAVE_VERSION, layout }).toEqual({ SAVE_VERSION: 3, layout: [44, 475, 485, 9, 1, 3, 6] });
+    expect({ SAVE_VERSION, layout }).toEqual({ SAVE_VERSION: 4, layout: [45, 500, 510, 9, 1, 3, 6] });
   });
 });
 
 describe('buckets, every edge', () => {
-  it('HP: 1–3, 4–6, 7–10, 11–15, 16+', () => expectBuckets(hpBucket, [[1, 3], [4, 6], [7, 10], [11, 15], [16, 99]]));
+  it('HP: 1–3, 4–6, 7–10, 11–15, 16–20, 21+', () => expectBuckets(hpBucket, [[1, 3], [4, 6], [7, 10], [11, 15], [16, 20], [21, 99]]));
   it('max HP: up to 14, 15–19, 20+', () => expectBuckets(maxHpBucket, [[1, 14], [15, 19], [20, 99]]));
   it('attack: 2, 3, 4+', () => expectBuckets(attackBucket, [[2, 2], [3, 3], [4, 20]]));
   it('potions and torches: 0, 1, 2, 3', () => expectBuckets(packBucket, [[0, 0], [1, 1], [2, 2], [3, 3]]));

@@ -10,11 +10,11 @@ const TILE_OF: Record<string, [Tile, number?]> = {
   'B': [BEDROCK], '#': [WALL, WALL_HP], '%': [WALL, CRACKED_HP], '.': [FLOOR], '>': [STAIRS], '^': [TRAP],
   'c': [GOLD, 3], '$': [GOLD, 10], '!': [POTION], 'i': [TORCH], '+': [STRENGTH], 'v': [VIGOUR],
 };
-const MONSTER_OF: Record<string, MonsterKind> = { r: 'rat', g: 'goblin', s: 'slime', t: 'troll' };
+const MONSTER_OF: Record<string, MonsterKind> = { r: 'rat', g: 'goblin', s: 'slime', t: 'troll', d: 'dragon' };
 
 /**
  * A map from rows of text, padded with bedrock to a square. `@` is him (on floor, or on the stairs if the map has
- * none); r, g, s, t are monsters on floor, in reading order. Every map gets a bedrock ring around it.
+ * none); r, g, s, t, d are monsters on floor, in reading order. Every map gets a bedrock ring around it.
  */
 export function dungeonFrom(rows: string[], code = 'TEST'): { dungeon: Dungeon; start: number } {
   const inner = rows.map((r) => r.replace(/ /g, ''));

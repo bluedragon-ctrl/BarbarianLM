@@ -38,6 +38,30 @@ describe('map codes', () => {
     expect(lengths[lengths.length - 1]).toBeLessThan(MAP_CODE_MAX);
   });
 
+  it('still read version 1 codes, made before the dragon', () => {
+    // ABC123 from the generator before the dragon, as the editor wrote it then.
+    const v1 = '~1BfAUBgAEABgAUBUMAVBAGPKDABUABUKDIAGABAWBTATHBTKDAJAHATMAZBVABUAXBAKDABTQAIABTAKDAVBAUBTJAKDKKAWBTFBAUBTANATBYABTABWABXATKDLBABWAFACFATKDMAVBWABXAVBWSAKKABZFBWKKAUBZABWAVBXAUKDBXAUCAWLATBfAQKDABT';
+    const d = readMapCode(v1);
+    expect(byPos(d.monsters).map((m) => [m.kind, m.pos, m.rich])).toEqual(byPos([
+      { kind: 'goblin', pos: 130, rich: false }, { kind: 'rat', pos: 91, rich: true }, { kind: 'goblin', pos: 253, rich: false },
+      { kind: 'rat', pos: 235, rich: false }, { kind: 'goblin', pos: 83, rich: false }, { kind: 'goblin', pos: 374, rich: true },
+      { kind: 'rat', pos: 354, rich: false }, { kind: 'slime', pos: 204, rich: false }, { kind: 'goblin', pos: 163, rich: true },
+      { kind: 'troll', pos: 283, rich: true },
+    ]).map((m) => [m.kind, m.pos, m.rich]));
+    expect(d.gold.reduce((a, b) => a + b, 0)).toBe(60);
+    expect(d.stairs).toBe(56);
+    expect(mapCode(d).startsWith('~2')).toBe(true);
+    expect(readMapCode(mapCode(d)).monsters).toEqual(d.monsters);
+  });
+
+  it('carry a dragon', () => {
+    const d = emptyDungeon();
+    paint(d, 21, 'stairs');
+    for (const i of [22, 23, 24, 25]) paint(d, i, 'floor');
+    paint(d, 25, 'dragon');
+    expect(readMapCode(mapCode(d)).monsters).toEqual([{ kind: 'dragon', pos: 25, hp: 16, rich: false }]);
+  });
+
   it('refuse broken or cut codes, and maps that cannot be raided', () => {
     const m = mapCode(generateDungeon('BCDEFG'));
     expect(() => readMapCode(m.slice(0, -3))).toThrow(/broken/);

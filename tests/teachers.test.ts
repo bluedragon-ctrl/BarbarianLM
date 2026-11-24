@@ -3,7 +3,7 @@ import { generateDungeon } from '../src/dungeon';
 import { randomCode, rngFrom } from '../src/rng';
 import { seenTiles } from '../src/sight';
 import {
-  TEACHERS, TeacherRaid, fightDamage, firstStep, newKnowledge, newTeacher, observe, plan, teacherRaid, wayBack,
+  TEACHERS, TeacherRaid, fightDamage, fightReserve, firstStep, newKnowledge, newTeacher, observe, plan, teacherRaid, wayBack,
   type Knowledge, type PlanOptions, type Teacher, type TeacherName,
 } from '../src/teachers';
 import { DOWN, DRINK, LEAVE, LEFT, RIGHT, RULES, UP, WAIT, bumpTarget, torchLit, type RaidState } from '../src/world';
@@ -214,6 +214,75 @@ describe('the teachers\' rules', () => {
     const healer = knowing('healer', s);
     expect(healer.act(s)).toBe(WAIT);
     expect(knowing('warrior', s).act(s)).toBe(RIGHT);
+  });
+
+  it('in one fight, potions top him up to full first, then heal only what the next hit leaves', () => {
+    const dragon = { kind: 'dragon' as const };
+    expect(fightReserve({ hp: 16, maxHp: 22, potions: 2 }, dragon, true, true)).toBe(22 + 1); // one to top up, one at +1
+    expect(fightReserve({ hp: 16, maxHp: 22, potions: 2 }, dragon, false, true)).toBe(16 + 2); // already next to it
+    expect(fightReserve({ hp: 16, maxHp: 22, potions: 2 }, dragon, true, false)).toBe(16);
+    expect(fightReserve({ hp: 10, maxHp: 14, potions: 1 }, { kind: 'rat' }, false, true)).toBe(10 + 5);
+  });
+
+  it('a dragon takes all four buffs: 20 damage at attack 4, 30 at attack 3', () => {
+    const d = { kind: 'dragon' as const, hp: 16 };
+    expect(fightDamage(d, 4, true)).toBe(20);
+    expect(fightDamage(d, 3, true)).toBe(30);
+    expect(fightDamage(d, 2, true)).toBe(40);
+  });
+
+  it('the champion takes on a dragon only fully buffed and healthy, drinking up to full first', () => {
+    const s = raidFrom(['>....', '.@.d.']);
+    s.torches = 0;
+    s.attack = 4;
+    s.maxHp = 22;
+    s.hp = 22;
+    s.potions = 0;
+    let t = knowing('champion', s);
+    t.act(s);
+    expect(t.reason).not.toBe('target'); // 2 HP left after it is too close for him
+    s.potions = 1;
+    t = knowing('champion', s);
+    expect(t.act(s)).toBe(RIGHT);
+    expect(t.reason).toBe('target');
+    s.hp = 18;
+    s.potions = 2;
+    t = knowing('champion', s);
+    expect(t.act(s)).toBe(DRINK); // one step from it: drink first, while it cannot hit him for it
+    s.attack = 3;
+    s.hp = 22;
+    s.potions = 3;
+    t = knowing('champion', s);
+    t.act(s);
+    expect(t.reason).not.toBe('target');
+    s.attack = 4;
+    s.maxHp = 18;
+    s.hp = 18;
+    t = knowing('champion', s);
+    t.act(s);
+    expect(t.reason).not.toBe('target');
+  });
+
+  it('below half HP, a careful teacher finishes a fight he can finish before drinking', () => {
+    const s = raidFrom(['>...@d']);
+    s.torches = 0;
+    s.attack = 4;
+    s.maxHp = 22;
+    s.hp = 7;
+    s.potions = 2;
+    s.monsters[0].hp = 8; // two blows, one hit of 5 between them
+    expect(knowing('champion', s).act(s)).toBe(RIGHT);
+    s.monsters[0].hp = 12; // three blows, two hits: he would fall
+    expect(knowing('champion', s).act(s)).not.toBe(RIGHT);
+  });
+
+  it('goblin in disguise walks into a dragon in sight too', () => {
+    const s = raidFrom(['>...@.', '.....d']);
+    s.torches = 0;
+    s.potions = 0;
+    const goblin = knowing('goblin', s);
+    goblin.act(s);
+    expect(goblin.reason).toBe('troll');
   });
 
   it('steps away from a troll he will not fight', () => {

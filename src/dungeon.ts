@@ -43,6 +43,10 @@ export const GEN = {
   safeDistance: 5,
   /** Rooms of the deepest this many get a troll guarding a heap. */
   trollRooms: 1,
+  /** The chance that a dragon guards the deepest room's heap instead of the troll; it is never rich. */
+  dragonChance: 1 / 3,
+  /** The dragon's hoard: the heap it guards. */
+  hoard: 20,
   richChance: 0.25,
   potions: 2,
   torches: 2,
@@ -283,7 +287,8 @@ function placeContents(d: Dungeon, stairsRoom: number, rng: Rng) {
   const freeIn = (k: number, minDepth = 0) => shuffle(rng, roomTiles(size, d.rooms[k]).filter((i) => isEmpty(i) && depth[i] >= minDepth));
   const putGold = (i: number, amount: number) => { tiles[i] = GOLD; d.gold[i] = amount; };
   const putMonster = (kind: MonsterKind, i: number) => {
-    d.monsters.push({ kind, pos: i, hp: MONSTER_STATS[kind].hp, rich: rng() < GEN.richChance });
+    const rich = rng() < GEN.richChance && kind !== 'dragon';
+    d.monsters.push({ kind, pos: i, hp: MONSTER_STATS[kind].hp, rich });
     occupied.add(i);
   };
   const monsterIn = (k: number, kind: MonsterKind) => {
@@ -294,12 +299,14 @@ function placeContents(d: Dungeon, stairsRoom: number, rng: Rng) {
   for (const k of others) {
     const t = roomDepth[k];
     if (trollRooms.has(k)) {
-      // A troll stands next to the heap it guards: taking the heap means standing beside it.
+      // A troll (or, now and then, a dragon on its hoard) stands next to the heap it guards: taking the heap means
+      // standing beside it.
+      const dragon = rng() < GEN.dragonChance;
       for (const i of freeIn(k, GEN.safeDistance)) {
         const guard = sideNeighbours(size, i).find((n) => inRoom[n] && isEmpty(n) && depth[n] >= GEN.safeDistance);
         if (guard === undefined) continue;
-        putGold(i, GEN.heap);
-        putMonster('troll', guard);
+        putGold(i, dragon ? GEN.hoard : GEN.heap);
+        putMonster(dragon ? 'dragon' : 'troll', guard);
         break;
       }
       const extra = freeIn(k)[0];

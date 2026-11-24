@@ -23,7 +23,7 @@ export const TEACHER_LINES: Record<TeacherName, string> = {
   dwarf: 'Careful like the healer, and digs through a wall when that is quicker than walking round.',
   pickaxe: 'Digs through any wall in one blow with his own pickaxe. The barbarian has no such pickaxe.',
   goblin: 'Plays just like the old warrior. Or does he?',
-  champion: 'Fetches strength and vigour first, then hunts monsters for their gold.',
+  champion: 'Fetches strength and vigour first, then hunts monsters for their gold. Fully buffed and healthy, he takes on the dragon.',
 };
 
 /** One plain line per judge. */
@@ -36,7 +36,7 @@ export const JUDGE_LINES: Record<Judge, string> = {
 /** Why a teacher took its action, in plain words, for watching a lesson. */
 export const REASON_WORDS: Record<Reason, string> = {
   leave: 'leaves by the stairs',
-  troll: 'walks straight at the troll',
+  troll: 'walks straight at the troll or dragon',
   flee: 'steps away from a monster he will not fight',
   drink: 'drinks a potion',
   fight: 'strikes',

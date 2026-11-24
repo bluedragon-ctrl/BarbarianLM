@@ -30,13 +30,13 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/rng.ts` | Seeded random numbers, one stream per purpose (see `docs/plan.md`) |
 | `src/tiles.ts` | Tile kinds, what each shows as in his view, monster kinds and stats |
 | `src/dungeon.ts` | Seeded dungeon generator, walking distances, how many steps a dig saves |
-| `src/mapCode.ts` | Hand-made dungeons: map codes (`~1…`) and `dungeonFromCode` for any code, painting, limits and checks for the editor |
+| `src/mapCode.ts` | Hand-made dungeons: map codes (`~2…`) and `dungeonFromCode` for any code, painting, limits and checks for the editor |
 | `src/world.ts` | A raid's state, `step(state, action, monsterRng)` in the design's turn order, `allowedActions`, his view |
 | `src/sight.ts` | The one sight rule for him and the monsters, his 5 × 5 view with dark cells |
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path (giving up after a few steps), wander |
 | `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, every input in words, `SAVE_VERSION` |
 | `src/model.ts` | The network: sparse forward, softmax with temperature, masking, imitation and policy-gradient gradients, lazy Adam and SGD, saves |
-| `src/teachers.ts` | The seven teachers: what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `TeacherRaid` and `teacherRaid` |
+| `src/teachers.ts` | The seven teachers (the champion is the dragonslayer): what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `TeacherRaid` and `teacherRaid` |
 | `src/raid.ts` | A raid alone: one sampled action a turn from the model (or played back from a script), boldness, "Block impossible actions", events, the per-turn record |
 | `src/raids.ts` | Many raids and their counts, events met included |
 | `src/explain.ts` | The twelve AI idea cards' words |

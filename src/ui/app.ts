@@ -691,6 +691,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
       [mon('goblin'), 'Goblin'],
       [mon('slime'), 'Slime (never moves)'],
       [mon('troll'), 'Troll (never moves)'],
+      [mon('dragon'), 'Dragon (never moves; only for the fully buffed)'],
       [icon(s('g', {}, monsterBody('goblin'), bandage()), 0.6), 'Wounded (half HP or less)'],
       [icon(s('g', { transform: 'scale(1.5)' }, lootSack()), 0.6), 'Rich (3 × gold)'],
       [icon(s('rect', { x: -T / 2, y: -T / 2, width: T, height: T, fill: 'url(#legend-hatch)' }), 0.6, true), 'Out of his sight'],

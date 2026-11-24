@@ -321,7 +321,7 @@ export class Board {
 function monsterParts(m: Monster): SVGElement[] {
   const max = MONSTER_STATS[m.kind].hp;
   const wounded = isWounded(m);
-  const big = m.kind === 'troll' ? 1 : m.kind === 'rat' ? 0.78 : 0.88;
+  const big = m.kind === 'troll' || m.kind === 'dragon' ? 1 : m.kind === 'rat' ? 0.78 : 0.88;
   const parts: SVGElement[] = [s('g', { transform: `translate(0 -3) scale(${big})` }, monsterBody(m.kind), wounded ? bandage() : null)];
   if (m.rich) parts.push(s('g', { transform: 'translate(-13 -11) scale(0.8)' }, lootSack()));
   const w = 22;

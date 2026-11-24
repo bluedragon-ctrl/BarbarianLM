@@ -26,7 +26,7 @@ describe('inputs in words', () => {
     // The newest pair sits in the last slot: 1 turn ago.
     expect(inputWords(pairAt(pairs - 1), pairs)).toBe('1 turn ago: memory slot filled');
     expect(inputWords(pairAt(0) + 1 + VIEW_INPUTS + 1, pairs)).toBe('3 turns ago: he took right');
-    expect(inputWords(pairAt(0) + 1 + 0 * CELL_SIZE + 17, pairs)).toBe('3 turns ago: wounded monster 2 north, 2 west');
+    expect(inputWords(pairAt(0) + 1 + 0 * CELL_SIZE + 18, pairs)).toBe('3 turns ago: wounded monster 2 north, 2 west');
     expect(pairAt(1) - pairAt(0)).toBe(PAIR_SIZE);
   });
 

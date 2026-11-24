@@ -1,9 +1,9 @@
 /**
  * The tokens: what the model reads. Everything is one-hot, laid out as in the design's context
  *
- *   pinned (43) | [view][action] … oldest to newest (485 each) | view now (475) → next action
+ *   pinned (45) | [view][action] … oldest to newest (510 each) | view now (500) → next action
  *
- * The pinned stats come in buckets; the view is 25 cells of 19 numbers; each remembered pair is a present flag,
+ * The pinned stats come in buckets; the view is 25 cells of 20 numbers; each remembered pair is a present flag,
  * a view and the action he took on it. Since every input is 0 or 1, an input is given as the list of the indices
  * that are 1 (`encode`), which is all the model's sparse forward and backward passes need; `dense` turns it into
  * a full vector for tests. No DOM, no randomness.
@@ -16,7 +16,7 @@ import { ACTIONS, ACTION_NAMES, type Action, type RaidState } from './world';
  * Bump when the input or output layout changes (tile kinds, monster flags, pinned tokens, buckets, actions, memory
  * sizes): saved models from an older layout no longer fit.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 // ── Buckets ─────────────────────────────────────────────────────────────────
 
@@ -27,8 +27,11 @@ function bucket(x: number, from: readonly number[]): number {
   return b;
 }
 
-/** HP: 1–3, 4–6, 7–10, 11–15, 16+ (0 never reaches the model: the trip has ended). */
-export const hpBucket = (hp: number): number => bucket(hp, [4, 7, 11, 16]);
+/**
+ * HP: 1–3, 4–6, 7–10, 11–15, 16–20, 21+ (0 never reaches the model: the trip has ended). 21+ is "healthy enough
+ * for the dragon", which only a barbarian with both vigours (max HP 22) can be.
+ */
+export const hpBucket = (hp: number): number => bucket(hp, [4, 7, 11, 16, 21]);
 /** Max HP: up to 14 (the start), 15–19 (after vigour), 20+. */
 export const maxHpBucket = (maxHp: number): number => bucket(maxHp, [15, 20]);
 /** Attack: 2, 3, 4+. */
@@ -78,7 +81,7 @@ export const distanceBucket = (steps: number): number => bucket(steps, [COMPASS_
 
 /** Sizes of the pinned groups, in order. */
 export const PINNED_GROUPS = [
-  ['hp', 5], ['maxHp', 3], ['attack', 3], ['potions', 4], ['torches', 4], ['torch', 3], ['gold', 5], ['time', 5],
+  ['hp', 6], ['maxHp', 3], ['attack', 3], ['potions', 4], ['torches', 4], ['torch', 3], ['gold', 5], ['time', 5],
   ['compass', 12],
 ] as const;
 export type PinnedGroup = typeof PINNED_GROUPS[number][0];
@@ -88,7 +91,7 @@ export const PINNED_SIZE = PINNED_GROUPS.reduce((at, [name, n]) => ((PINNED_AT[n
 /** Within the compass: 9 directions (8 and here), then near, far, very far. */
 export const COMPASS_DISTANCE_AT = PINNED_AT.compass + 9;
 
-/** One view cell: one-hot over the 17 view kinds, then wounded, then rich. */
+/** One view cell: one-hot over the 18 view kinds, then wounded, then rich. */
 export const CELL_SIZE = VIEW_KINDS + 2;
 export const WOUNDED_AT = VIEW_KINDS;
 export const RICH_AT = VIEW_KINDS + 1;
@@ -189,7 +192,7 @@ export function dense(indices: readonly number[], size: number): Float32Array {
 const dash = (a: number, b: number) => `${a}–${b}`;
 /** Each pinned input in words, in input order: what the memory strip shows for the pinned tokens. */
 export const PINNED_LABELS: readonly string[] = [
-  ...['1–3', '4–6', '7–10', '11–15', '16+'].map((v) => `HP ${v}`),
+  ...['1–3', '4–6', '7–10', '11–15', '16–20', '21+'].map((v) => `HP ${v}`),
   ...['up to 14', '15–19', '20+'].map((v) => `Max HP ${v}`),
   ...['2', '3', '4+'].map((v) => `Attack ${v}`),
   ...['0', '1', '2', '3'].map((v) => `Potions ${v}`),
@@ -211,7 +214,7 @@ export function pinnedWords(s: RaidState): string[] {
   return words;
 }
 
-/** Each view kind in words, in kind order: the 12 tiles, dark, then the 4 monsters. */
+/** Each view kind in words, in kind order: the 12 tiles, dark, then the 5 monsters. */
 export const VIEW_KIND_WORDS: readonly string[] = [
   'floor', 'stone wall', 'cracked wall', 'bedrock', 'stairs', 'spike trap', 'small gold', 'gold heap', 'potion', 'torch',
   'strength', 'vigour', 'dark', ...MONSTER_KINDS,

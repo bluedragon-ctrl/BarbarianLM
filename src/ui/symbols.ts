@@ -150,7 +150,7 @@ export function itemSymbol(shown: number) {
 
 const eye = (x: number, y: number, r = 1.8, fill = COLORS.ink) => s('circle', { cx: x, cy: y, r, fill });
 
-/** Monster bodies: a rat, a goblin head with pointed ears, a slime blob, a troll with tusks. */
+/** Monster bodies: a rat, a goblin head with pointed ears, a slime blob, a troll with tusks, a horned dragon with wings. */
 export function monsterBody(kind: MonsterKind) {
   switch (kind) {
     case 'rat':
@@ -179,6 +179,18 @@ export function monsterBody(kind: MonsterKind) {
         eye(-6, -1, 1.8), eye(6, -1, 1.8),
         s('path', { d: 'M-8 6 Q0 10 8 6', stroke: COLORS.ink, 'stroke-width': 1.6, fill: 'none' }),
         s('path', { d: 'M-7 7 L-8 1 L-4 6 Z M7 7 L8 1 L4 6 Z', fill: '#f4eee0', stroke: COLORS.ink, 'stroke-width': 1 }));
+    case 'dragon':
+      // Bronze, never red (red is for danger): folded wings behind a horned head with a long snout.
+      return s('g', {},
+        s('path', { d: 'M-8 -2 L-20 -14 L-17 -3 L-21 2 L-15 4 L-18 10 L-8 8 Z M8 -2 L20 -14 L17 -3 L21 2 L15 4 L18 10 L8 8 Z', fill: '#6f5a2a', stroke: COLORS.ink, 'stroke-width': 1.2, 'stroke-linejoin': 'round' }),
+        s('path', { d: 'M-6 -11 L-9 -19 L-2 -12 Z M6 -11 L9 -19 L2 -12 Z', fill: '#f4eee0', stroke: COLORS.ink, 'stroke-width': 1 }),
+        s('path', { d: 'M-11 -2 C-11 -14 11 -14 11 -2 L7 12 C4 17 -4 17 -7 12 Z', fill: '#b08a3e', stroke: COLORS.ink, 'stroke-width': 1.5 }),
+        s('path', { d: 'M-6 -4 L-2 -2 M6 -4 L2 -2', stroke: COLORS.ink, 'stroke-width': 1.6, 'stroke-linecap': 'round' }),
+        s('ellipse', { cx: -4.5, cy: 0, rx: 2.4, ry: 1.6, fill: '#f3e36b', stroke: COLORS.ink, 'stroke-width': 0.8 }),
+        s('ellipse', { cx: 4.5, cy: 0, rx: 2.4, ry: 1.6, fill: '#f3e36b', stroke: COLORS.ink, 'stroke-width': 0.8 }),
+        s('path', { d: 'M-1 0 V1.6 M1 0 V1.6', stroke: COLORS.ink, 'stroke-width': 1 }),
+        eye(-2.5, 11, 1), eye(2.5, 11, 1),
+        s('path', { d: 'M-5 5 L-3 7 L-1 5 L1 7 L3 5 L5 7', stroke: '#f4eee0', 'stroke-width': 1, fill: 'none' }));
   }
 }
 

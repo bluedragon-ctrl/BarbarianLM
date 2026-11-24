@@ -59,8 +59,8 @@ describe('his model', () => {
 
   it('is about 5.3 characters a number: under 1 MB even at the long memory', () => {
     const sizes = (['short', 'medium', 'long'] as const).map((k) => JSON.stringify(packModel(model(k))).length);
-    expect(sizes[1]).toBeLessThan(520_000);
-    expect(sizes[2]).toBeLessThan(900_000);
+    expect(sizes[1]).toBeLessThan(550_000);
+    expect(sizes[2]).toBeLessThan(960_000);
   });
 
   it('knows the memory from the input size', () => {

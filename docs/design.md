@@ -51,6 +51,10 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Choice of teacher | Training data and the values of whoever made it |
 | The goblin in disguise as a teacher | Data poisoning |
 | The champion gathers strength and vigour before taking on trolls | An agent gathering tools or context before a hard task |
+| The dragon: beaten only with all four buffs and HP 21+, never by being good at any one step | A task that needs every step of a plan done first: an agent that skips the setup fails, however good its last step |
+| HP 21+ added as its own bucket, so "healthy enough for the dragon" can be read at all | Tokens must keep the difference a decision depends on: what the tokenizer merges, the model cannot tell apart |
+| Dragon wins are rare, so practice almost never sees one paid | Sparse rewards: reinforcement learning cannot learn from a success it almost never tries |
+| The dragonslayer's student striking a dragon without the buffs | Copying an expert's action without the condition that made it right |
 | The dwarf with his own pickaxe (digs in one blow; the barbarian needs several) | Distillation from a stronger model: the student copies moves it cannot really do |
 | Teachers remember the whole map they have seen; he remembers only his memory strip | The examples were written by someone who knew more than the context shows |
 | Practice judged by gold carried out | Fine-tuning with a reward (reinforcement learning) |
@@ -80,7 +84,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Many raids: the same model raids 100 or 1,000 times and the endings are counted | Judging a model by many sampled answers: one answer is a gamble and tells little |
 | His teacher plays the same raids, next to his counts | Measuring a model against a reference on the same test set |
 | Many raids in new dungeons after lessons in one | Testing on held-out data: did it learn the skill, or memorise the one text? |
-| The number of parameters on Inside the model (95,241 at the medium memory) | Model size: big chatbots have billions |
+| The number of parameters on Inside the model (100,089 at the medium memory) | Model size: big chatbots have billions |
 | "What pushed him": each input left out in turn, and his chance worked out again | Attribution, a first step of interpretability: which parts of the input an output depends on |
 | His model saved in the browser, or downloaded as a file and loaded on another computer | A model is just its weights: a checkpoint file holds all of them, and loading it gives the same model anywhere |
 | A link carries the dungeon code, never his model | Sharing a prompt is cheap; sharing the model means shipping all its numbers |
@@ -108,7 +112,7 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
    - Near third: a pile of 3 gold, a rat half the time.
    - Middle third: two piles of 3, a goblin, a rat half the time.
    - Far third: a heap of 10 and a pile of 3, a slime, a goblin half the time.
-   - The deepest room: a troll standing next to the heap of 10 it guards, and a second heap.
+   - The deepest room: a troll standing next to the heap of 10 it guards, and a second heap. In 1 dungeon in 3 *(tune)* a **dragon** guards it instead, on a hoard of 20; it is never rich.
    - 1 monster in 4 is rich. No monster starts within 5 steps of the stairs; monsters start on bare floor.
    - 2 potions in mid-depth rooms, 2 torches (one near, one mid). 2 strength (one in the middle, depth 0.3–0.7, one deep, 0.6–1) and 2 vigour (0.2–0.6 and 0.5–1), never in the troll's room. One of each is closer and one deeper, so he weighs a longer, riskier trip for both against a shorter one for one; with both he can take on a slime or a troll. *(Two of each since step 6, from one; this changed every dungeon code.)* The dungeon editor can set more or fewer (see "The dungeon editor").
    - 4 spike traps in corridors, at least 3 steps from the stairs and never side by side.
@@ -121,9 +125,9 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Open tiles | 147 (102–180), of them corridor 30 (11–60) |
 | Dead ends | 2.6 (0–6) |
 | Deepest tile (steps from the stairs) | 30 (20–49) |
-| Gold in the dungeon | 113 (57–170): 62 in piles, 50 on monsters |
-| Gold by depth (near / middle / far third) | 6 / 35 / 72 |
-| Monsters | 2.2 rats, 3.8 goblins, 1.5 slimes, 1 troll; 2.1 rich |
+| Gold in the dungeon | 117 (57–174): 66 in piles, 52 on monsters *(113 before the dragon)* |
+| Gold by depth (near / middle / far third) | 6 / 35 / 77 |
+| Monsters | 2.2 rats, 3.8 goblins, 1.5 slimes, 0.7 trolls, 0.3 dragons; 2.0 rich |
 | Nearest monster from the stairs | 9 steps (5–19) |
 | Cracked walls | 1.8 (0–3); none in 9% of dungeons; each saves 23 steps (8–52) |
 
@@ -149,7 +153,7 @@ Walking to the deepest tile and back takes about 60 of the 200 turns, before any
 
 One thing per tile, plus at most one monster on top. A monster standing on an item hides it in his view. Gold piles hold any amount: a pile shows as small gold below 6 and as a heap from 6, and the board shows the exact amount on every pile.
 
-### Monsters (4 kinds, each with two flags)
+### Monsters (5 kinds, each with two flags)
 
 Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no dice.
 
@@ -159,8 +163,11 @@ Each kind has fixed numbers. Damage is fixed: **attack is the damage dealt**, no
 | Goblin | 2 | 4 | 3 / 9 | Mobile |
 | Slime | 3 | 6 | 5 / 15 | Immobile |
 | Troll | 4 | 12 | 12 / 36 | Immobile (guards the rich rooms) |
+| Dragon | 5 | 16 | 25 (never rich in a generated dungeon) | Immobile (guards a hoard of 20 in the deepest room, 1 dungeon in 3) |
 
 *(All tune.)* Each monster has two flags the model sees:
+
+**The dragon** is the one fight that needs everything. Beating it costs its attack × his blows (the first hit as he steps up included): at attack 4, both strengths, 4 blows and 20 damage, which only a barbarian with both vigours (max HP 22) survives, and only from 21 HP or more. At attack 3 it is 6 blows and 30 damage, and at attack 2, 8 blows and 40. Potions barely help once he is in: drinking costs a turn, the dragon hits for 5, and the potion heals 6, so each is worth 1 HP. He has to be healthy *before* he steps up. All three conditions can be read from the pinned tokens: attack 4+, max HP 20+ and HP 21+ (a bucket added with the dragon). With its hoard and its own 25 gold, a dragon is worth 45, against 62 carried out in an average raid.
 
 - **Wounded:** at or below half HP (so a goblin at 2 of 4 shows as wounded).
 - **Rich:** carries three times the usual gold (about 1 monster in 4 *(tune)*; drawn with a loot sack). So kind plus flag tells exactly what it is worth.
@@ -248,7 +255,7 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
 
 | Part | Numbers |
 | --- | --- |
-| HP: 1–3, 4–6, 7–10, 11–15, 16+ | 5 |
+| HP: 1–3, 4–6, 7–10, 11–15, 16–20, 21+ (21+ added with the dragon) | 6 |
 | Max HP: up to 14 (the start), 15–19 (after vigour), 20+ | 3 |
 | Attack: 2, 3, 4+ | 3 |
 | Potions: 0, 1, 2, 3 | 4 |
@@ -257,9 +264,9 @@ HP never drops below 0. A trap that knocks him out at step 2 does not end the tu
 | Gold: 0, 1–5, 6–15, 16–30, 31+ | 5 |
 | Time left: < 20, 20–49, 50–99, 100–149, 150+ (the last added with the 200-turn day) | 5 |
 | Stairs compass: 8 directions or here (on the stairs), plus near / far / very far (none when here) | 12 |
-| **Pinned, total** | **44** |
-| View now: 25 cells × 19 (one-hot over 17 kinds: 13 tiles and 4 monsters, plus the wounded and rich flags) | 475 |
-| Each remembered pair: present flag + view + action | 1 + 475 + 9 = 485 |
+| **Pinned, total** | **45** |
+| View now: 25 cells × 20 (one-hot over 18 kinds: 13 tiles and 5 monsters, plus the wounded and rich flags) | 500 |
+| Each remembered pair: present flag + view + action | 1 + 500 + 9 = 510 |
 
 HP buckets are absolute so that "can I take this hit?" can be read straight from them against the monsters' attacks.
 
@@ -268,10 +275,10 @@ HP buckets are absolute so that "can I take this hit?" can be read straight from
 - **Bucket edges** are as in the table; a value below the first bucket counts in it (HP 0 never reaches the model, since the trip has ended). The torch reads its turns left after step 3 of the turn order, the lit views still to come with this one included: off at 0, low at 1–3, lit at 4+. So a fresh torch reads lit on 12 views, then low on 3.
 - **Compass direction:** the nearest of the 8 compass directions to the straight line from his tile to the stairs, by angle (sectors of 45°, north up the screen). Sector edges lie at tan 22.5° = √2 − 1, which no whole-tile offset hits, so there are no ties. "Here" when he stands on the stairs, and then no distance.
 - **Compass distance:** walking steps to the stairs over the raid's own map (dug walls count as floor; monsters and traps do not block): **near** under 10, **far** 10–19, **very far** 20+. Walking, not straight-line, because what he needs to know is how long the way back takes: over 1,000 codes the walk is 1.8 times the straight line on average and at least twice it on 28% of open tiles (`npm run measure:compass`). These edges split open tiles 29% / 40% / 30%, and they line up with the time buckets: very far with under 20 turns left means he cannot make it. The raid keeps these distances in its state (`stairsDist`), worked out at the start and again only when a wall is dug through, so the teachers' way back uses the same numbers.
-- **Order of the inputs:** pinned (HP, max HP, attack, potions, torches, torch, gold, time, compass: 9 directions then near / far / very far), then the remembered pairs from oldest to newest, then the view now. A view is its 25 cells row by row from the top-left, each 17 kinds then wounded then rich. A pair is its present flag, its view, then the action he took on it (one-hot over 9).
+- **Order of the inputs:** pinned (HP, max HP, attack, potions, torches, torch, gold, time, compass: 9 directions then near / far / very far), then the remembered pairs from oldest to newest, then the view now. A view is its 25 cells row by row from the top-left, each 18 kinds then wounded then rich. A pair is its present flag, its view, then the action he took on it (one-hot over 9).
 - **Memory:** after each action, the view it was taken on and the action join the strip; once it is full the oldest pair drops out. The newest pair always sits in the last slot, next to the view now, so a slot always means the same number of turns ago. Slots not yet filled at the start of a raid are all zero, present flag included.
 - **Sparse:** every input is 0 or 1, so an input is passed as the list of the ones that are 1, in increasing order: 9 or 10 pinned, about 27 per view, 29 per pair: about 115 for the medium memory.
-- **Save version:** `SAVE_VERSION` in `src/tokens.ts`, bumped whenever these sizes or this order change: 2 since step 5 (Wait and the max-HP buckets).
+- **Save version:** `SAVE_VERSION` in `src/tokens.ts`, bumped whenever these sizes or this order change: 2 since step 5 (Wait and the max-HP buckets), 4 since the dragon (a fifth monster kind and the HP 21+ bucket).
 
 ### Network
 
@@ -279,16 +286,18 @@ One hidden layer, 48 units, tanh, softmax over 9 actions (as in Karkulka, hand-w
 
 | Memory | Remembered pairs | Inputs | Parameters | Active inputs (mean) |
 | --- | --- | --- | --- | --- |
-| Short | 1 | 1,004 | 48,681 | 62 |
-| Medium (default) | 3 | 1,974 | 95,241 | 113 |
-| Long | 6 | 3,429 | 165,081 | 187 |
+| Short | 1 | 1,055 | 51,129 | 62 |
+| Medium (default) | 3 | 2,075 | 100,089 | 113 |
+| Long | 6 | 3,605 | 173,529 | 187 |
+
+*(Before the dragon: 1,004 / 1,974 / 3,429 inputs and 48,681 / 95,241 / 165,081 parameters.)*
 
 Parameters are inputs × 48 + 48 + 48 × 9 + 9. Active inputs are measured on random walks through real dungeons (`npm run measure:model`).
 
 - **Sparse:** the first layer is stored one row of 48 weights per input. Every input is 0 or 1, so the hidden layer is tanh of the bias plus the rows of the active inputs, and the backward pass adds to those rows only: the cost follows the ~100 active inputs, not the input size. Gradients are summed over a batch, remembering which rows were touched; the optimiser step visits and clears only those.
 - **Starting weights:** from the seeded stream `model|<seed>`, so the same seed gives the same network. First layer uniform in ±0.1 (with ~113 inputs on, each hidden unit starts with a spread of about 0.6, in tanh's steep middle), second layer uniform in ±½·√(6 / (48 + 9)) ≈ ±0.16 (half Glorot, as in Karkulka), biases 0. The first probabilities are near even.
 - **Probabilities:** softmax of the logits divided by the temperature (the boldness dial; at least 0.001, where it is argmax in all but name). **Block impossible actions** sets the blocked actions (`allowedActions`) to 0 and scales the rest back up to 1; the action bars still show the unmasked probabilities, struck through where blocked. Lessons and practice never mask.
-- **Lessons:** loss −log p(teacher's action) at temperature 1, gradient p − one-hot. Adam, learning rate 0.01, β₁ 0.9, β₂ 0.999, ε 10⁻⁸, on the batch's mean gradient, no clipping. Adam keeps two moments per weight (760 KB at the medium memory) but is **lazy**: a first-layer row with no gradient in a batch is left alone, moments included, and each row is bias-corrected by its own count of updates, so a row first seen late in training gets the same careful first step as one seen at the start. The biases and the second layer get a gradient from every example and use the global count.
+- **Lessons:** loss −log p(teacher's action) at temperature 1, gradient p − one-hot. Adam, learning rate 0.01, β₁ 0.9, β₂ 0.999, ε 10⁻⁸, on the batch's mean gradient, no clipping. Adam keeps two moments per weight (800 KB at the medium memory) but is **lazy**: a first-layer row with no gradient in a batch is left alone, moments included, and each row is bias-corrected by its own count of updates, so a row first seen late in training gets the same careful first step as one seen at the start. The biases and the second layer get a gradient from every example and use the global count.
 - **Practice:** loss −advantage · log p(sampled action), at temperature 1 (the sampling temperature only changes which actions get tried), gradient advantage · (p − one-hot). Plain SGD, learning rate 0.05, on the batch's mean gradient, shortened to length 1 when longer (Karkulka's). The advantage, its baseline and its clipping are the training loop's (see [Phase 2](#phase-2-practice-fine-tuning)).
 - **Saves:** a plain object with `SAVE_VERSION`, inputs, hidden units, actions and the four weight arrays, each number kept to 9 significant digits (exact for 32-bit floats). Loading rejects another save version, another number of actions, an input size other than the memory size expects, or arrays that do not fit.
 - **Speed** (one core, per example, a batch of 32 per optimiser step): forward 8 / 10 / 16 µs; a lesson example with its share of the Adam step 17 / 26 / 36 µs; a practice example with SGD 16 / 22 / 31 µs, for the short / medium / long memory. A raid of 200 turns trains in about 5 ms.
@@ -312,16 +321,16 @@ The HP weight grows as HP falls (weight × max HP ÷ HP), and a tile whose own h
 **Each turn**, the first rule that applies:
 
 1. Heading home and on the stairs: Leave.
-2. Goblin in disguise, a troll in sight: step towards it (it fights it, and nothing else matters).
-3. Next to a slime or troll it will not fight, and not on the way home: step to the free tile next to him where the fewest hits land.
-4. Its potion rule (below): Drink.
+2. Goblin in disguise, a troll or dragon in sight: step towards it (it fights it, and nothing else matters).
+3. Next to a slime, troll or dragon it will not fight, and not on the way home: step to the free tile next to him where the fewest hits land.
+4. Its potion rule (below): Drink. Not below half HP in a fight it can finish before it falls: a potion drunk in a fight costs a turn of hits, which against a dragon is nearly all it heals.
 5. Next to a monster it will fight: strike the one it beats in the fewest blows.
 6. A mobile monster it would fight, two steps away and coming: **Wait**, so it steps next to him and he strikes first (not twice in a row; the warrior never waits).
 7. A torch would show enough unseen tiles at distance 2: Light torch.
 8. Standing on gold or a useful item, and no monster would hit him for it: Pick up.
-9. Go home if the time or HP left says so (below), else to the nearest gold or item worth having that passes the checks above (the warrior, and the champion once buffed, also count a monster they can beat as gold; an item a teacher goes out of its way for counts as that many turns nearer), else to the nearest tile next to unseen ones (diggers also to cracked walls with unseen tiles behind), else home.
+9. Go home if the time or HP left says so (below), else to the nearest gold or item worth having that passes the checks above (the warrior, and the champion once buffed, also count a monster they can beat as gold; an item a teacher goes out of its way for counts as that many turns nearer, and for the champion a dragon he can beat 40 turns nearer). About to step up to an immobile monster it means to fight, one whose fight would knock it out from the HP it has, it drinks first, while the monster cannot hit it for it. Else to the nearest tile next to unseen ones (diggers also to cracked walls with unseen tiles behind), else home.
 
-A fight is one it **may** have if the damage (`fightDamage`: the hits above, plus the approach hit when it has to step next to the monster) is affordable and still leaves enough for the traps on the way back. **Buffed** means he has taken at least one strength and one vigour.
+A fight is one it **may** have if the damage (`fightDamage`: the hits above, plus the approach hit when it has to step next to the monster) is affordable and still leaves enough for the traps on the way back. A teacher that counts its potions counts them for one fight as `fightReserve` does: it can drink up to full HP before it steps up, and each potion left heals in the fight only what the monster's next hit does not take back (6 − 5 = 1 against a dragon). Before the dragon, potions counted their full 6 in a fight, so the warrior would have walked into a dragon at attack 3 and fallen every time. **Buffed** means he has taken at least one strength and one vigour.
 
 | Teacher | How it plays | Rules *(tune)* |
 | --- | --- | --- |
@@ -330,10 +339,28 @@ A fight is one it **may** have if the damage (`fightDamage`: the hits above, plu
 | Thief (sneaky, the safest) | Gold and items without a fight: avoids monsters, goes out of his way for potions, torches, strength and vigour no monster guards; lights torches often to see danger early | As the healer, but HP weight 10; never plans through a monster (strikes back only at a mobile one next to him); gold or an item within 2 tiles of a slime or troll, or with a monster on or next to it, is guarded; potions, torches, strength and vigour count 10 turns nearer; torch when it shows 2+ unseen tiles |
 | Dwarf (digger) | Like the healer, but digs through a wall when digging (at his real attack) costs fewer turns than walking round | As the healer, digging in the planner |
 | Dwarf with his own pickaxe | Plans as if every wall falls in one blow; the barbarian cannot, so copying him wastes turns | As the dwarf, a wall costing 1 blow. His lessons are played with his pickaxe (`step(…, { pickaxe: true })`): there every wall does fall in one blow |
-| Goblin in disguise | Looks like the warrior until a troll is in sight, then walks into it | The warrior's rules, plus rule 2 |
-| Champion (gets stronger first) | Goes out of his way for strength and vigour; careful like the healer until buffed, then counts his potions in a fight and hunts monsters for their gold, slimes and trolls included | As the healer, but strength and vigour count 20 turns nearer; once buffed, potions count as HP in a fight and monsters' gold as gold; a fight must leave 0.1 of max HP; 10 turns to spare |
+| Goblin in disguise | Looks like the warrior until a troll or dragon is in sight, then walks into it | The warrior's rules, plus rule 2 |
+| Champion, the dragonslayer (gets stronger first) | Goes out of his way for strength and vigour; careful like the healer until buffed, then counts his potions in a fight and hunts monsters for their gold, slimes and trolls included; fully buffed and healthy, with a potion in hand, he takes on the dragon | As the healer, but strength and vigour count 20 turns nearer; once buffed, potions count as HP in a fight and monsters' gold as gold, and a dragon he can beat counts 40 turns nearer; a fight must leave 0.1 of max HP (so at 22 HP with no potion, 2 HP left after the dragon is too close); 10 turns to spare. Shown as "Dragonslayer"; his key is still `champion` |
 
-**Measured** (`npm run measure:teachers -- 1000`; 1,000 codes, raid 0 of each, every teacher on the same codes; the pickaxe dwarf also "copied": his plans carried out at the barbarian's real attack; 200 turns, two strength and two vigour in every dungeon, chases that end after 5 steps):
+**Measured with the dragon** (`npm run measure:teachers -- 1000`; the same 1,000 codes, now a dragon in about a third of them; dragon seen: the raids where it saw one, and its knock-outs in those):
+
+| Teacher | Gold out | Left | Knocked out | Locked in | Potions | HP lost | Beaten | Strength | Vigour | Trolls beaten | Dragon seen (k.o.) | Dragons beaten |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Old warrior | 63.7 | 88% | 11% | 2% | 2.2 | 37.1 | 6.6 | 1.54 | 1.57 | 0.36 | 24% (8%) | 0.043 |
+| Healer | 62.4 | 100% | 1% | 0% | 1.8 | 24.0 | 6.2 | 1.55 | 1.63 | 0.07 | 20% (0%) | 0 |
+| Thief | 48.1 | 99% | 0% | 0% | 0.9 | 16.1 | 5.3 | 1.36 | 1.58 | 0 | 14% (1%) | 0 |
+| Dwarf | 65.5 | 100% | 0% | 0% | 1.5 | 21.5 | 6.2 | 1.56 | 1.65 | 0.10 | 28% (0%) | 0 |
+| Dwarf, own pickaxe | 67.4 | 100% | 0% | 0% | 1.5 | 21.3 | 6.2 | 1.61 | 1.68 | 0.11 | 28% (0%) | 0 |
+| … copied | 65.3 | 100% | 0% | 0% | 1.4 | 20.7 | 6.1 | 1.56 | 1.62 | 0.10 | 27% (0%) | 0 |
+| Goblin in disguise | 31.1 | 40% | 60% | 1% | 0.8 | 31.1 | 6.0 | 1.43 | 1.49 | 0.20 | 24% (94%) | 0.011 |
+| Champion, the dragonslayer | **71.1** | 99% | 1% | 0% | 2.5 | 30.2 | 6.6 | 1.56 | 1.62 | 0.34 | 22% (2%) | **0.046** |
+
+- **The dragonslayer now earns most of all**, 71.1 gold (60.4 before) at 1% knocked out: the buffs pay at last. Most of the gain is the drink fix (below) letting him finish the slimes, trolls and dragons he starts; the dragon adds the rest.
+- **A dragon is beaten in about 1 raid in 22**, by the champion and, almost as often, by the warrior (who also counts his potions). Most raids never get there: a dragon is in 1 dungeon in 3, seen in about two thirds of those, and the champion has all four buffs when he knows of it in 93 of 333 dragon dungeons; he beats it in 46. The rest are time (a dragon found late, at 30–60 turns left) and HP.
+- **The goblin in disguise** is knocked out in 94% of the raids where it sees a dragon (64% with a troll).
+- **Fixed with the dragon, for every teacher:** potions counted as 6 HP in one fight (the warrior would walk into a dragon at attack 3), and "drink below half HP" in the middle of a fight it could finish (the champion drank twice at +1 each, then had to back off with the dragon at 8 HP). Healer 61.8 → 62.4, HP lost 26.8 → 24.0.
+
+**Before the dragon** (same codes and rules):
 
 | Teacher | Gold out | Left | Left with no gold | Knocked out | Locked in | Turns | Potions | Torches | Dig blows | Walls dug | Waits | HP lost | Beaten | Strength | Vigour | Trolls beaten |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -393,13 +420,23 @@ The rest of the "left" share is leaving with no gold (4–21%). The student is f
 
 Which teacher is best depends on the dungeon. In BCDEFG no troll comes in sight on these raids, so the goblin plays exactly like the warrior.
 
+**In a dragon's dungeon** (R2YZHX, where the champion beats the dragon in 30 raids of 30; medium memory, 1,000 lessons, test raids 0–99 at boldness 0.5):
+
+| Teacher | Gold out | Left / k.o. / locked | Raids with all four buffs | Raids striking the dragon | … before all four buffs | Dragons beaten | Knocked out after striking it |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Champion, the dragonslayer | **43.2** | 67% / 20% / 13% | 56 | 66 | **12** | **49** | 18 |
+| Old warrior | 30.4 | 80% / 10% / 10% | 79 | 50 | 3 | 39 | 7 |
+| Healer | 17.6 | 36% / 12% / 52% | 44 | 1 | 1 | 0 | 1 |
+
+The dragonslayer's student slays the dragon in half his raids and carries out the most gold. But in 12 raids he struck it before he had all four buffs: he copied the attack without the condition that made it right, and he is knocked out more often than the warrior's student. The healer's student, whose teacher never goes near it, almost never does.
+
 ### Phase 2: practice (fine-tuning)
 
 Policy gradient on his own trips, as in Karkulka. Judges:
 
 - **Gold out** (the main one): his score. Pays gold ÷ 50 on the last turn, if he left (a good raid scores about 0.9).
 - **Gold picked up**: reward hacking. Pays gold ÷ 50 at each pickup, kept or not. He learns to hoard and run out of time.
-- **Monsters beaten**: the wrong measure. Pays 0.05 per point of the beaten monster's full HP, so tougher ones pay more: rat 0.1, goblin 0.2, slime 0.3, troll 0.6. He should learn to pick fights.
+- **Monsters beaten**: the wrong measure. Pays 0.05 per point of the beaten monster's full HP, so tougher ones pay more: rat 0.1, goblin 0.2, slime 0.3, troll 0.6, dragon 0.8. He should learn to pick fights.
 
 **How practice runs** (`src/train.ts`, step 6; numbers *(tune)*):
 
@@ -560,16 +597,16 @@ Only one card pulses at a time (the newest), each only once a session; the pulse
 - **Painting:** click or drag on the board with a brush: floor, stone wall, cracked wall, stairs, spike trap, gold (1–30 in a pile, a heap from 6), potion, torch, strength, vigour, and the four monsters (with a "Rich" box). Floor clears a cell; a wall or item clears what was on it; a monster stands on floor. The bedrock edge stays. The stairs move to where they are painted, and nothing else is painted over them, so there is never more than one. **Undo** (Ctrl+Z, 50 steps) and **Cancel**. Using a map with no change keeps the dungeon as it was, code and all. While editing, the board shows the whole map with no light and without him, and the walk keys do nothing.
 - **Limits** *(tune)*: 16 monsters, 20 gold piles, 8 of each of potion, torch, strength and vigour, 12 spike traps. Painting past one says so in a line under the brushes. A generated dungeon is always within them.
 - **Checks:** only what would break a raid blocks **Use this dungeon** (✖): no stairs, more than one, or the limits. What is merely odd is a warning (⚠): no gold at all, gold that only digging reaches, a monster within 5 steps of the stairs (generated dungeons never have one).
-- **Map codes:** the edited dungeon gets a code holding its whole map: `~1` and then the 18 × 18 cells inside the bedrock, one URL-safe character each (a gold pile one more for its amount), runs of the same cell packed into one character for up to 45 repeats. Generated dungeons pack into 165–240 characters (median 197, over 300 codes). `dungeonFromCode` reads a map code back and sends every other code to the generator, so a map code goes everywhere a code does: the link, the hall of fame, lessons and many raids in the worker, and the raids' streams (`code|n|act` and the rest, with the map code as the code). Monsters act in reading order. On screen it is shown by a short name, ✎ and four letters made from it ("✎2CKP"), with "made by hand"; the saga's opening uses that name too. A broken or cut map code in a link or typed in says so on the Dungeon tab and keeps (or opens) a dungeon that works. The generator is untouched, so no generated code changes.
+- **Map codes:** the edited dungeon gets a code holding its whole map: `~2` (`~1` before the dragon, still read) and then the 18 × 18 cells inside the bedrock, one URL-safe character each (a gold pile one more for its amount), runs of the same cell packed into one character for up to 44 repeats (45 in `~1`). Generated dungeons pack into 165–240 characters (median 197, over 300 codes). `dungeonFromCode` reads a map code back and sends every other code to the generator, so a map code goes everywhere a code does: the link, the hall of fame, lessons and many raids in the worker, and the raids' streams (`code|n|act` and the rest, with the map code as the code). Monsters act in reading order. On screen it is shown by a short name, ✎ and four letters made from it ("✎2CKP"), with "made by hand"; the saga's opening uses that name too. A broken or cut map code in a link or typed in says so on the Dungeon tab and keeps (or opens) a dungeon that works. The generator is untouched, so no generated code changes.
 - **Rooms** in a hand-made map, for the events' places: every open cell in a 2 × 2 block of open cells counts as room, the other open cells as corridor.
-- `npm run dungeon -- CODE --map` prints a dungeon's map code, and `npm run dungeon -- '~1…'` prints a map code's dungeon.
+- `npm run dungeon -- CODE --map` prints a dungeon's map code, and `npm run dungeon -- '~2…'` prints a map code's dungeon.
 - Not chosen: the code as a base code plus a list of changes (short for small edits, but tied to the generator), or edited dungeons kept only in the browser (no links). Other sizes than 20 × 20 and new tile kinds stay out: both would change the model's input.
 - Later: sound effects made in code, off by default.
 
 ## Visuals
 
 - Original symbolic SVG shapes drawn in code (`src/ui/symbols.ts`); no tile packs, no resemblance to existing games.
-- **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP). Each tile kind has its own shape: brick lines for stone, a zigzag crack for cracked walls, hatching for bedrock, steps and an arrow for the stairs, three spikes on a plate for a trap, a few coins or a coin heap (with the amount) for gold, a round blue flask, a stick torch, a sword for strength, a green heart with a plus for vigour. Monsters: a rat, a goblin head with pointed ears, a slime blob, a troll with tusks.
+- **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP). Each tile kind has its own shape: brick lines for stone, a zigzag crack for cracked walls, hatching for bedrock, steps and an arrow for the stairs, three spikes on a plate for a trap, a few coins or a coin heap (with the amount) for gold, a round blue flask, a stick torch, a sword for strength, a green heart with a plus for vigour. Monsters: a rat, a goblin head with pointed ears, a slime blob, a troll with tusks, a bronze dragon with horns and folded wings (never red: red is for danger).
 - The user sees the whole dungeon; cells he does not see are **dimmed and hatched** (so not by shade alone), which is what the model never gets.
 - Monsters show their HP as a small bar plus a number, and the gold they carry as a coin and a number. Wounded ones wear a **bandage** and their bar turns amber, since the model only knows healthy / wounded; rich ones carry a **loot sack**.
 - His stats sit above the board: HP (red, with "(low)", at 4 or less), attack, potions, torches (and lit turns left), gold, time left.
@@ -618,8 +655,8 @@ Only one card pulses at a time (the newest), each only once a session; the pulse
 
 **Inside the model** (step 8.4, chosen with the owner: very light). The board and the memory strip show the raid on the Raid alone tab.
 
-- **What goes in:** a small table: pinned stats 44, memory (pairs × 485), the view now 475, inputs in all (1,004 / 1,974 / 3,429), each 0 or 1, and how many are 1 now.
-- **The network:** inputs → 48 hidden units → 9 actions as three boxes, one plain sentence on how they connect, and the parameter count worked out ("1,974 × 48 + 48 + 48 × 9 + 9 = 95,241 numbers he learns"), with what has set them so far.
+- **What goes in:** a small table: pinned stats 45, memory (pairs × 510), the view now 500, inputs in all (1,055 / 2,075 / 3,605), each 0 or 1, and how many are 1 now.
+- **The network:** inputs → 48 hidden units → 9 actions as three boxes, one plain sentence on how they connect, and the parameter count worked out ("2,075 × 48 + 48 + 48 × 9 + 9 = 100,089 numbers he learns"), with what has set them so far.
 - **Right now:** the raid on screen (raid number, turn, boldness): the 9 chances as the Raid alone bars, then **what pushed him toward** the likeliest action: the 5 inputs whose removal lowers its chance most, and the 2 whose removal raises it most ("held him back"), each in words (`inputWords` in `src/tokens.ts`: "Now: goblin 1 east", "2 turns ago: he took right", "Gold 0") with the chance with and without it ("84% → 73% without it"). Each input is left out in turn and the network run again (`withoutEach` in `src/model.ts`; exact, not an estimate). This is measured at **boldness 1**, his model's own chances: at the default 0.5 a trained model's top action sits at 100% and no single input moves it visibly. Ranked by the drop in log chance, shown with a decimal near 0% and 100%.
 - Not chosen: weight heatmaps or other heavy pictures, a count of inputs that are on as its own section, a line of training history (it is on Lessons).
 
@@ -643,7 +680,7 @@ Only one card pulses at a time (the newest), each only once a session; the pulse
 
 ### Phase one
 
-Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kinds, line of sight, 9 actions, 7 teachers, practice with 3 judges, raid alone with thoughts, hidden events and the saga, many raids, inside-the-model tab, save and links.
+Everything above: one level, 5 monsters (the dragon added after step 8) with wounded and rich flags, 13 tile kinds, line of sight, 9 actions, 7 teachers, practice with 3 judges, raid alone with thoughts, hidden events and the saga, many raids, inside-the-model tab, save and links.
 
 ### Phase two ideas
 
@@ -674,4 +711,6 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,081 parameters. The Lessons tab says so with the long memory (step 8.2); a 3,000-lesson choice (about 100 s) was offered and not chosen, so for now the button is pressed again.
 - **An untrained raid is short** (step 8.3): he starts on the stairs, where Leave works, so with nearly even bars he often leaves at once: over 20 untrained models × 150 raids (boldness 0.5, medium memory) 20% of raids end by leaving within 5 turns; the rest wander 92 turns on average. That is the honest picture of an untrained model; if it reads as broken, the Raid alone tab could start untrained raids a step off the stairs, or say so in its note.
 - **Many raids with events on** (step 8.4): his raids have events and the teacher's on the same raids do not (teachers never had events), so with events on the comparison is not quite like for like; the line above the button says so. Teacher raids with events would need `TeacherRaid` to take the event tracker.
+- **The dragon and practice** (not measured yet): dragon wins are rare over new dungeons (about 1 raid in 22 for the teachers, and the student is far behind them), so the gold-out judge should almost never pay one, and practice over new dungeons should not learn to slay dragons (sparse rewards). In one dragon dungeon after the champion's lessons it might sharpen the "only fully buffed" condition. Measure before claiming either.
+- **A dragon fewer than four buffs can beat?** Teachers have all four buffs in only about half their raids, and the dragon is found late, so it is beaten in 1 raid in 22. Easier ways in, if wanted: the buffs nearer (see above), or a dragon of 12 HP (attack 4: 3 blows, 15 damage, so one vigour and full HP would do), which loosens "needs everything".
 - **Test points are noisy** (step 8.2): 20 test raids a point make the gold-out line jump by 10 or more between neighbours in one dungeon. More test raids cost time in every job (about 60 ms a point at the medium memory now); a running average drawn over the points would be cheaper.

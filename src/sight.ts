@@ -50,7 +50,7 @@ export function sees(map: SightMap, from: number, to: number, range: number): bo
   return squareDistance(map.size, from, to) <= range && lineClear(map, from, to);
 }
 
-/** View cell kinds: the 12 shown tile kinds, then dark, then the 4 monsters (17 in all). */
+/** View cell kinds: the 12 shown tile kinds, then dark, then the 5 monsters (18 in all). */
 export const DARK = SHOWN_KINDS;
 export const MONSTER_VIEW_KIND = (kind: Monster['kind']): number => SHOWN_KINDS + 1 + MONSTER_KINDS.indexOf(kind);
 export const VIEW_KINDS = SHOWN_KINDS + 1 + MONSTER_KINDS.length;
