@@ -14,6 +14,10 @@ export interface Settings {
   showEvents: boolean;
   /** His thoughts on a raid alone. */
   thoughts: boolean;
+  /** The boldness dial on a raid alone: the sampling temperature. */
+  boldness: number;
+  /** "Block impossible actions" on a raid alone: constrained decoding. */
+  block: boolean;
   /** Dim and hatch the cells he does not see. */
   dim: boolean;
   /** The torchlight flickers. */
@@ -29,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
   newSpots: true,
   showEvents: false,
   thoughts: true,
+  boldness: 0.5,
+  block: false,
   dim: true,
   flicker: true,
   fightMarks: true,

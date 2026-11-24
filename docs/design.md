@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`), and the first UI steps: the shell, tabs, board and settings (`src/ui/`, `src/marks.ts`), and the Lessons and Practice tabs with their charts (`src/ui/training.ts`, `src/ui/trainer.ts`, `src/ui/charts.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`), and the first UI steps: the shell, tabs, board and settings (`src/ui/`, `src/marks.ts`), the Lessons and Practice tabs with their charts (`src/ui/training.ts`, `src/ui/trainer.ts`, `src/ui/charts.ts`), and the Raid alone tab (`src/ui/raidAlone.ts`, `src/ui/strip.ts`, `src/ui/raidPlay.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -73,6 +73,9 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | Walking him yourself on the Dungeon tab | You choose each next token, the job the model will learn |
 | His teacher's numbers as a dashed line next to his, on the same test raids | A model trained on examples is measured against whoever wrote them, and usually falls short |
 | Watching a lesson: the teacher's raid, turn by turn, with the reason for each action | The training text itself: what the model is asked to copy, one token at a time |
+| "Replay raid 3": the same raid number gives the same raid, until the model or the boldness changes | A fixed random seed: sampling is random, but repeatable when the seed is kept |
+| The memory strip starting with empty slots | A conversation's first tokens: the context window is not full yet |
+| His bars before training: every action about as likely, and he may well leave on the first turn | An untrained model's output: guesses spread over the whole vocabulary |
 | The judge's score rising while his gold out falls | Reward hacking seen in the numbers: the score is not the goal |
 
 ## Dungeon and rules
@@ -430,7 +433,7 @@ The champion's lessons alone make a student who fights more: 5.5 beaten before a
 
 ### Tests
 
-- **Raid alone:** step by step, with the action bars, memory strip, his thoughts and the saga at the end.
+- **Raid alone:** step by step, with the action bars, memory strip, his thoughts and the saga at the end (the tab is described under [Visuals](#visuals)).
 - **Raid alone** (`src/raid.ts`): each turn he reads his input, the model gives the probabilities at the boldness, "Block impossible actions" masks them when on, one number from `code|n|act` picks the action (one a turn, block or not, so the box never shifts the stream), and `step` answers with `code|n|monsters`. Each turn's record keeps the input, the unmasked and the sampled probabilities, what was allowed, the view he picked from, the action and what it did, the events that followed it, and his stats once the turn and its events were over (for thoughts and the UI). With events on, the record also keeps the spots placed and the events met.
 - **Many raids** (`src/raids.ts`): many raids alone, raids 0, 1, 2… of one dungeon or raid 0 of many codes. Average gold out; share left with gold, left with no gold (counted apart, or a player that leaves on the first turn looks safe), knocked out, locked in; average turns, potions drunk, torches lit, walls dug, wasted actions, waits, gold picked up and monsters beaten (what the judges see); with the block option on or off; with events on, events met, the ones whose effect changed his stats, and their net change to his gold ("events took 14 gold over 200 raids").
 - **In the worker** (`src/worker.ts` runs `runJob` from `src/train.ts`, as in Karkulka): a request is `lessons` (model, stats, count, seed, teacher, optional dungeon and Adam state, which comes back so lessons can go on where they stopped), `practice` (judge instead of teacher), `raids` (a plan, boldness, block, events) or `teachers` (step 8.2: teachers and an optional dungeon). It answers `progress` every 25 raids (after each teacher for `teachers`), then `done` (model, stats, Adam), `raidsDone` (counts) or `teachersDone` (each teacher's numbers), or `error`. `src/workerClient.ts` is the page's side.
@@ -537,6 +540,18 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 - **Memory:** the memory setting fixes the model's size. Changing it after any lessons or practice asks first, then starts a fresh model; with nothing learned it just does. The memory and "where lessons and practice happen" wait while a round runs.
 - Not chosen: a third chart of the lesson loss (abstract for the main audience), a slider for the counts, trails of every lesson drawn on the board while training.
 
+**Raid alone** (step 8.3, chosen with the owner). His current model raids the dungeon on screen, on the page's main thread one turn at a time through `Raid` (it is not training, so no worker). Untrained is allowed: his bars are then nearly even and his actions random guesses.
+
+- **Raid number:** counts up per dungeon code, from 1 ("Raid 3 in BCDEFG"), kept for the session; a new dungeon code starts its own count. **New raid** takes the next number; **Replay raid n** plays the same number again: the same streams (`code|n|act`, `code|n|monsters`, `code|n|story`, `code|n|thoughts`, and the same event spots), so the same raid, unless his model or the boldness changed. A raid that has not started yet takes his newest model, and the event settings, when they change. Raid alone numbers share their streams with the test raids of training (raids 0–19 of a dungeon): at boldness 0.5 with events off, raid alone 3 is his test raid 3.
+- **The action bars** (the side panel, "His next action"): one row per action (a mark, the name, a bar and its percentage, the likeliest in bold) from the **unmasked** probabilities at the boldness for the turn about to be drawn. With "Block impossible actions" on, the blocked rows are struck through and their bars hatched grey: never drawn, the rest scaled up. A line under the bars says what the last turn drew and at what chance ("Turn 12: he took right, drawn at 55%."). Tiny chances read "<1%", never 0, unless blocked or truly 0.
+- **The boldness dial:** 0.1 to 2.5 in steps of 0.1, **0.5 by default** (the boldness of his test raids, so a raid alone looks like the numbers on the charts; the saga then makes up nothing). It can move during a raid: the next turn uses it, and the bars follow at once. "Sing it again" uses the boldness set now. Both the dial and the block option are kept for the session with the settings.
+- **The memory strip** (under the board, on this tab only): his context window as the model reads it. The pinned tokens as chips in words, from the same indices the model gets ("HP 7–10", "Torch burning low", "Stairs north-east, far"; `pinnedWords` in `src/tokens.ts`), then his remembered views as small 5 × 5 pictures (dark cells hatched, his cell framed), each followed by the action he took on it, oldest first, then the view now framed in gold, "→ ?". At the start the slots are dashed and empty, as the model gets them (all zero). Older turns he has forgotten show as "…". The board gives up the strip's height on this tab so both fit on a laptop screen.
+- **His thoughts:** a speech bubble over him on the board (below him near the top edge, kept inside the board), from `Thoughts` with the raid's thoughts stream. It stays until the next turn, which takes it away or replaces it. Off with the "His thoughts on a raid alone" setting.
+- **Play controls:** **Next turn**; **Play / Pause** at **Slow 0.6 s, Normal 0.3 s or Fast 0.1 s** a turn (Normal by default), waiting longer after a thought so it can be read (1.1–3.5 s by its length, × 1.25 slow, × 0.6 fast); **To the end** plays the rest at once with no effects or bubbles but the last thought. Leaving the tab pauses; a new dungeon code ends the raid.
+- **Effects:** as on the Dungeon tab: damage and gold pop-ups, coins scattering, smoke when the torch goes out, pools and prints, and events' pop-up words over him. "Show events (for testing)" draws this raid's spots.
+- **The saga** replaces the action bars in the panel when the raid ends, under a line saying how it ended: up to 10 sentences, true ones with a small rune stone, made-up ones with a grey dashed cloud and in italics, the count line ("5 true, 4 made up", plus "telling 4" after a retelling), and **Sing it again** (the next telling's stream, `code|n|saga|k`, at the boldness set now).
+- Considered and not chosen: bars as columns under the board, or move arrows drawn round him on the board; actions only in the memory strip (hides that views are tokens too); a fixed raid 0 or a random number each raid; one speed or a slider; the saga as an overlay on the board or under the strip.
+
 **Settings and defaults** (step 8.1; kept for the session until save and links come in step 8.5):
 
 | Setting | Default |
@@ -547,6 +562,8 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 | New places every raid | On |
 | Show events (for testing) | Off |
 | His thoughts on a raid alone | On |
+| Boldness (on the Raid alone tab) | 0.5, from 0.1 to 2.5 |
+| Block impossible actions (on the Raid alone tab) | Off |
 | Dim what he cannot see | On |
 | Torchlight flickers | On |
 | Pools and prints | On |
@@ -584,4 +601,5 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - **Thoughts in long fights:** every hit gets a thought, so a five-blow fight with a slime is five "Ow!"s in a row. Keep (it reads like a fight), or let a hit from the same monster as last turn keep quiet?
 - **A closing line for the saga?** Karkulka ends its story with who shaped her ("The careful healer had taught him…"). Not built here; it would need the teacher or judge passed to the saga.
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,081 parameters. The Lessons tab says so with the long memory (step 8.2); a 3,000-lesson choice (about 100 s) was offered and not chosen, so for now the button is pressed again.
+- **An untrained raid is short** (step 8.3): he starts on the stairs, where Leave works, so with nearly even bars he often leaves at once: over 20 untrained models × 150 raids (boldness 0.5, medium memory) 20% of raids end by leaving within 5 turns; the rest wander 92 turns on average. That is the honest picture of an untrained model; if it reads as broken, the Raid alone tab could start untrained raids a step off the stairs, or say so in its note.
 - **Test points are noisy** (step 8.2): 20 test raids a point make the gold-out line jump by 10 or more between neighbours in one dungeon. More test raids cost time in every job (about 60 ms a point at the medium memory now); a running average drawn over the points would be cheaper.

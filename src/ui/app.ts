@@ -1,11 +1,13 @@
 /**
  * The app: tabs in the order the story goes, the board, and a side panel per tab. Built so far: the Dungeon tab
  * (pick a code, look around, walk him yourself), Lessons and Practice (`training.ts`, with the model and its jobs
- * in `trainer.ts`) and Settings; the other tabs come in later steps.
+ * in `trainer.ts`), Raid alone (`raidAlone.ts`, with the memory strip in `strip.ts`) and Settings; the other tabs
+ * come in later steps.
  */
 import { generateDungeon, type Dungeon } from '../dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel } from '../events';
 import { FloorMarks } from '../marks';
+import type { RaidTurn } from '../raid';
 import { normalizeCode, randomCode, rngFrom, type Rng } from '../rng';
 import { MONSTER_KINDS, SHOWN, monsterGold, type MonsterKind } from '../tiles';
 import { TeacherRaid, type TeacherName, type TeacherTurn } from '../teachers';
@@ -13,6 +15,8 @@ import { MEMORY_SIZES, type MemoryName } from '../tokens';
 import type { Judge } from '../train';
 import { DOWN, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, RULES, UP, WAIT, DRINK, newRaid, step, torchLit, type Action, type RaidState } from '../world';
 import { Board } from './board';
+import { RaidAlone, type RaidHost } from './raidAlone';
+import { renderStrip } from './strip';
 import { add, clear, h, s } from './dom';
 import { DEFAULT_SETTINGS, type Settings } from './settings';
 import { Trainer } from './trainer';
@@ -25,7 +29,7 @@ type TabId = 'dungeon' | 'lessons' | 'raid' | 'practice' | 'many' | 'inside' | '
 const TABS: { id: TabId; label: string; soon?: string }[] = [
   { id: 'dungeon', label: '1. Dungeon' },
   { id: 'lessons', label: '2. Lessons' },
-  { id: 'raid', label: '3. Raid alone', soon: 'He raids on his own, one predicted action at a time, thinking out loud. A skald sings the saga after.' },
+  { id: 'raid', label: '3. Raid alone' },
   { id: 'practice', label: '4. Practice' },
   { id: 'many', label: '5. Many raids', soon: 'Hundreds of raids at once, and what they add up to.' },
   { id: 'inside', label: '6. Inside the model', soon: 'The numbers he reads and the weights that turn them into actions.' },
@@ -68,7 +72,7 @@ const ACTION_BUTTONS: { a: Action; label: string; key: string }[] = [
 
 const MEMORY_LABELS: Record<MemoryName, string> = { short: 'Short', medium: 'Medium', long: 'Long' };
 
-export class App implements TrainingHost {
+export class App implements TrainingHost, RaidHost {
   tab: TabId = 'dungeon';
   settings: Settings = { ...DEFAULT_SETTINGS };
   dungeon!: Dungeon;
@@ -83,6 +87,8 @@ export class App implements TrainingHost {
   private watch: Watch | null = null;
   readonly watchLine = h('p', { class: 'watch-line', 'aria-live': 'polite' });
   private readonly board = new Board();
+  readonly raidAlone = new RaidAlone(this);
+  private readonly stripEl = h('div', { class: 'strip', hidden: true });
   private readonly tabsEl = h('nav', { class: 'tabs', role: 'tablist' });
   private readonly statsEl = h('div', { class: 'stats', 'aria-live': 'polite' });
   private readonly panelEl = h('section', { class: 'panel' });
@@ -95,7 +101,7 @@ export class App implements TrainingHost {
           h('p', {}, 'A barbarian raids a dungeon one predicted action at a time, the way a language model writes one word at a time.')),
         this.tabsEl),
       h('div', { class: 'stage' },
-        h('div', { class: 'main-col' }, this.statsEl, h('div', { class: 'board-wrap' }, this.board.el)),
+        h('div', { class: 'main-col' }, this.statsEl, h('div', { class: 'board-wrap' }, this.board.el), this.stripEl),
         this.panelEl));
     document.addEventListener('keydown', (e) => this.onKey(e));
     this.setCode(randomCode());
@@ -104,6 +110,7 @@ export class App implements TrainingHost {
   setCode(code: string): void {
     this.stopWatch();
     this.watch = null;
+    this.raidAlone?.forget();
     this.dungeon = generateDungeon(code);
     this.start = newRaid(this.dungeon);
     this.restartWalk();
@@ -121,6 +128,39 @@ export class App implements TrainingHost {
 
   private onTrainerChange(): void {
     if (this.tab === 'lessons' || this.tab === 'practice' || this.tab === 'settings') this.renderPanel();
+    // A raid that has not started yet takes his newest model.
+    else if (this.tab === 'raid' && !this.raidAlone.raid?.turns.length && !this.raidAlone.playing) this.render();
+  }
+
+  setQuietly(patch: Partial<Settings>): void {
+    this.settings = { ...this.settings, ...patch };
+  }
+
+  /** A raid alone's turn on the board: effects, event pop-ups and his thought; null after a restart or to the end. */
+  showTurn(turn: RaidTurn | null, fx: boolean): void {
+    const ra = this.raidAlone;
+    const raid = ra.raid;
+    if (!raid) return;
+    const st = raid.state;
+    if (!turn) this.board.reset();
+    this.board.render(st, this.boardOptions());
+    if (turn && fx) {
+      this.board.effects(st, turn.result);
+      for (const e of turn.events ?? []) {
+        const k = raid.events?.kind(e.kind);
+        if (k) this.board.pop(st.pos, k.popup, 'event');
+      }
+    }
+    this.board.say(turn && this.settings.thoughts ? ra.thought : null, st.pos);
+    this.renderStats();
+    this.renderStrip();
+  }
+
+  private renderStrip(): void {
+    const raid = this.tab === 'raid' ? this.raidAlone.raid : null;
+    this.stripEl.hidden = !raid;
+    this.stripEl.parentElement?.parentElement?.classList.toggle('with-strip', !!raid);
+    if (raid) renderStrip(this.stripEl, raid.state, raid.turns, raid.memory.size);
   }
 
   /** A fresh model, after asking if he has learned anything. */
@@ -218,6 +258,10 @@ export class App implements TrainingHost {
   /** What the board shows: your walk on the Dungeon tab, a watched lesson, or the dungeon before anyone moves. */
   private shown(): { state: RaidState; marks: FloorMarks | null; walk: boolean } {
     if (this.tab === 'dungeon') return { state: this.walk.state, marks: this.walk.marks, walk: true };
+    if (this.tab === 'raid') {
+      const r = this.raidAlone.ensure();
+      return { state: r.state, marks: this.raidAlone.marks, walk: false };
+    }
     if (this.tab === 'lessons' && this.watch) return { state: this.watch.raid.state, marks: this.watch.marks, walk: false };
     return { state: this.start, marks: null, walk: false };
   }
@@ -230,7 +274,9 @@ export class App implements TrainingHost {
       flicker: st.flicker,
       marks: st.fightMarks ? sh.marks : null,
       // Lessons and practice never have events.
-      spots: sh.walk && st.events && st.showEvents ? this.walk.events?.setup.spots ?? null : null,
+      spots: !st.events || !st.showEvents ? null
+        : sh.walk ? this.walk.events?.setup.spots ?? null
+          : this.tab === 'raid' ? this.raidAlone.raid?.events?.setup.spots ?? null : null,
     };
   }
 
@@ -240,6 +286,7 @@ export class App implements TrainingHost {
       this.stopWatch();
       this.watch = null;
     }
+    if (this.tab === 'raid') this.raidAlone.pause();
     this.tab = id;
     this.board.reset();
     this.render();
@@ -248,7 +295,9 @@ export class App implements TrainingHost {
   render(): void {
     this.renderTabs();
     this.board.render(this.shown().state, this.boardOptions());
+    this.board.say(null);
     this.renderStats();
+    this.renderStrip();
     this.renderPanel();
   }
 
@@ -276,12 +325,13 @@ export class App implements TrainingHost {
       stat(sunIcon(), 'Time left', String(st.timeLeft), st.timeLeft <= 20 ? 'warn-text' : ''));
   }
 
-  private renderPanel(): void {
+  renderPanel(): void {
     clear(this.panelEl);
     const t = TABS.find((x) => x.id === this.tab)!;
     if (this.tab === 'dungeon') this.dungeonPanel();
     else if (this.tab === 'lessons') add(this.panelEl, ...lessonsPanel(this));
     else if (this.tab === 'practice') add(this.panelEl, ...practicePanel(this));
+    else if (this.tab === 'raid') add(this.panelEl, ...this.raidAlone.panel());
     else if (this.tab === 'settings') this.settingsPanel();
     else this.panelEl.append(h('h2', {}, t.label.replace(/^\d+\. /, '')), h('p', {}, t.soon ?? ''), h('p', { class: 'muted' }, 'Coming soon.'));
   }

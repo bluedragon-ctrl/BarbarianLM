@@ -124,6 +124,17 @@ export class Raid {
     return encode(this.state, view(this.state), this.memory);
   }
 
+  /**
+   * The coming turn's probabilities, without drawing anything: what the action bars show before he acts. The
+   * boldness and the block option are read from `options` each turn, so the dial can move between turns.
+   */
+  peek(): { probs: Float32Array; sample: Float32Array; allowed?: boolean[] } | null {
+    if (this.state.ended) return null;
+    const allowed = this.options.block ? allowedActions(this.state) : undefined;
+    const d = decide(this.model, this.input(), this.options.temperature ?? 1, allowed);
+    return { probs: d.probs, sample: d.sample, allowed };
+  }
+
   next(): RaidTurn | null {
     const s = this.state;
     if (s.ended) return null;

@@ -182,3 +182,30 @@ export function dense(indices: readonly number[], size: number): Float32Array {
   for (const i of indices) x[i] = 1;
   return x;
 }
+
+// ── In words ────────────────────────────────────────────────────────────────
+
+const dash = (a: number, b: number) => `${a}–${b}`;
+/** Each pinned input in words, in input order: what the memory strip shows for the pinned tokens. */
+export const PINNED_LABELS: readonly string[] = [
+  ...['1–3', '4–6', '7–10', '11–15', '16+'].map((v) => `HP ${v}`),
+  ...['up to 14', '15–19', '20+'].map((v) => `Max HP ${v}`),
+  ...['2', '3', '4+'].map((v) => `Attack ${v}`),
+  ...['0', '1', '2', '3'].map((v) => `Potions ${v}`),
+  ...['0', '1', '2', '3'].map((v) => `Torches ${v}`),
+  ...['off', 'burning low', 'lit'].map((v) => `Torch ${v}`),
+  ...['0', '1–5', '6–15', '16–30', '31+'].map((v) => `Gold ${v}`),
+  ...['under 20', dash(20, 49), dash(50, 99), dash(100, 149), '150+'].map((v) => `Time ${v}`),
+  ...COMPASS_NAMES.map((v) => (v === 'here' ? 'Stairs here' : `Stairs ${v}`)),
+  'near', 'far', 'very far',
+];
+
+/**
+ * The pinned tokens he reads now, in words ("HP 7–10", "Stairs north-east, far"): one per group, the compass
+ * direction and distance together. Made from `pinnedIndices`, so it is exactly what the model reads.
+ */
+export function pinnedWords(s: RaidState): string[] {
+  const words = pinnedIndices(s).map((i) => PINNED_LABELS[i]);
+  if (words.length > PINNED_GROUPS.length) words.splice(-2, 2, `${words.at(-2)}, ${words.at(-1)}`);
+  return words;
+}

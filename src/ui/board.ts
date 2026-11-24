@@ -41,6 +41,7 @@ export class Board {
   private readonly hero = s('g', { class: 'actor hero' });
   private readonly glow = s('g', { class: 'actor glow-wrap' });
   private readonly fx = s('g', { class: 'layer-fx' });
+  private readonly bubble = s('g', { class: 'layer-bubble', 'aria-hidden': 'true' });
   private readonly monsterEls = new Map<Monster, SVGGElement>();
   private size = 0;
 
@@ -58,7 +59,7 @@ export class Board {
         s('stop', { offset: '0%', 'stop-color': '#fff4dc', 'stop-opacity': 0.15 }),
         s('stop', { offset: '100%', 'stop-color': '#fff4dc', 'stop-opacity': 0 })));
     this.hero.append(barbarian());
-    this.el.append(defs, this.tiles, this.marks, this.items, this.spots, this.monsters, this.dark, this.glow, this.hero, this.fx);
+    this.el.append(defs, this.tiles, this.marks, this.items, this.spots, this.monsters, this.dark, this.glow, this.hero, this.fx, this.bubble);
   }
 
   /** Forget the monsters drawn (a new dungeon or a new raid), so none slides in from where an old one stood. */
@@ -66,6 +67,7 @@ export class Board {
     this.monsterEls.clear();
     clear(this.monsters);
     clear(this.fx);
+    clear(this.bubble);
     this.hero.classList.add('no-anim');
     this.glow.classList.add('no-anim');
   }
@@ -217,6 +219,48 @@ export class Board {
     const [x, y] = at(this.size, i);
     const g = s('g', { transform: `translate(${x} ${y - 24})` }, s('text', { class: `fx-pop ${kind}`, x: 0, y: 0 }, text));
     this.addFx(g, 1600);
+  }
+
+  /**
+   * His thought bubble over tile `i` (null takes it away). It sits above him, or below near the top edge, and is
+   * kept inside the board.
+   */
+  say(lines: readonly string[] | null, i = 0): void {
+    clear(this.bubble);
+    if (!lines?.length) return;
+    const [x, y] = at(this.size, i);
+    const lh = 28;
+    const pad = { x: 12, y: 8 };
+    const g = s('g', { class: 'bubble' });
+    const box = s('rect', { rx: 10 });
+    const tail = s('path', {});
+    const texts = lines.map((l) => s('text', {}, l));
+    g.append(tail, box, ...texts);
+    this.bubble.append(g);
+    // Measure the text when it is on screen; guess from the length when it is not.
+    const width = Math.max(...texts.map((t, k) => {
+      let w = 0;
+      try { w = t.getComputedTextLength(); } catch { /* not rendered */ }
+      return w > 0 ? w : lines[k].length * 11.6;
+    })) + 2 * pad.x;
+    const height = lines.length * lh + 2 * pad.y;
+    const full = this.size * T;
+    const bx = Math.min(Math.max(4, x - width / 2), full - width - 4);
+    const gap = 12;
+    const above = y - T / 2 - gap - height >= 4;
+    const by = above ? y - T / 2 - gap - height : y + T / 2 + gap;
+    box.setAttribute('x', String(bx));
+    box.setAttribute('y', String(by));
+    box.setAttribute('width', String(width));
+    box.setAttribute('height', String(height));
+    const tx = Math.min(Math.max(bx + 14, x), bx + width - 14);
+    tail.setAttribute('d', above
+      ? `M${tx - 7} ${by + height - 1} L${x} ${y - T / 2 + 2} L${tx + 7} ${by + height - 1} Z`
+      : `M${tx - 7} ${by + 1} L${x} ${y + T / 2 - 2} L${tx + 7} ${by + 1} Z`);
+    texts.forEach((t, k) => {
+      t.setAttribute('x', String(bx + pad.x));
+      t.setAttribute('y', String(by + pad.y + lh * k + 22));
+    });
   }
 
   private addFx(el: SVGElement, ms: number): void {

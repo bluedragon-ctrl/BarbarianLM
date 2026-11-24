@@ -151,3 +151,55 @@ button.primary:hover:not(:disabled) { background: #234b5d; }
 .chart-svg .hit:hover { fill: #26232110; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 0.2rem 0.8rem; font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
 .legend-item { display: inline-flex; align-items: center; gap: 0.3em; }
+
+/* Raid alone: the action bars, the dial, the saga. */
+.row.spaced { justify-content: space-between; }
+.bars { display: flex; flex-direction: column; gap: 0.2rem; }
+.bar-row { display: grid; grid-template-columns: 2.6rem 6.2rem 1fr 2.8rem; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+.bar-mark { font-size: 0.72rem; color: var(--muted); text-align: center; border: 1px solid var(--line); border-radius: 5px; padding: 0.05em 0; }
+.bar-mark.move { font-size: 1rem; font-weight: 700; color: var(--ink); }
+.bar-track { height: 0.95rem; background: #f1ecdf; border-radius: 4px; overflow: hidden; border: 1px solid #e2d9c6; }
+.bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 3px 0 0 3px; transition: width 0.15s ease; }
+.bar-pct { text-align: right; font-variant-numeric: tabular-nums; }
+.bar-row.likeliest .bar-name, .bar-row.likeliest .bar-pct { font-weight: 700; }
+.bar-row.blocked .bar-name, .bar-row.blocked .bar-pct { text-decoration: line-through; color: var(--muted); }
+.bar-row.blocked .bar-fill { background: repeating-linear-gradient(135deg, #a8a194 0 4px, #d6d0c4 4px 8px); }
+.turn-line { min-height: 1.45em; font-size: 0.9rem; margin-top: 0.5rem; }
+.dial { display: flex; flex-direction: column; gap: 0.2rem; }
+.dial-row { display: flex; align-items: center; gap: 0.5rem; }
+.dial-row input { flex: 1; accent-color: var(--accent); }
+.dial-value { font-variant-numeric: tabular-nums; }
+.saga ol { list-style: none; padding: 0; margin: 0.3rem 0 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.saga li { display: flex; gap: 0.5em; align-items: flex-start; line-height: 1.4; }
+.saga li.made-up span { font-style: italic; color: #4f4a44; }
+.saga-mark { flex: none; margin-top: 0.1em; }
+.saga-count { font-size: 0.88rem; font-weight: 600; }
+
+/* His thought bubble on the board. */
+.bubble rect, .bubble path { fill: #fffdf6; stroke: var(--ink); stroke-width: 1.5; }
+.bubble path { stroke-linejoin: round; }
+.bubble text { font: 600 23px system-ui, sans-serif; fill: var(--ink); }
+.bubble { animation: bubble-in 0.18s ease-out both; }
+@keyframes bubble-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* The memory strip under the board. */
+.strip { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.4rem 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.strip[hidden] { display: none; }
+.strip-label { font-size: 0.85rem; margin-right: 0.3rem; }
+/* With the memory strip under it, the board gives up the strip's height. */
+.stage.with-strip { --board: max(360px, min(100vh - 440px, 100vw - 420px - 4.6rem - 20px)); }
+.strip-pinned { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+.pin { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-right: 0.2rem; }
+.chip { font-size: 0.74rem; background: #f3efe3; border: 1px solid var(--line); border-radius: 999px; padding: 0.05em 0.55em; white-space: nowrap; }
+.strip-row { display: flex; gap: 0.5rem; align-items: center; overflow-x: auto; padding-bottom: 0.2rem; }
+.strip-pair { display: flex; align-items: center; gap: 0.25rem; flex: none; }
+.strip-pair.now { padding: 0.15rem; border: 2px solid var(--gold); border-radius: 8px; }
+.mini-view { width: 56px; height: 56px; border-radius: 4px; display: block; }
+.mini-empty { width: 56px; height: 56px; border: 2px dashed var(--line); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--muted); }
+.act-tok { min-width: 1.8rem; text-align: center; font-size: 0.72rem; border: 1px solid #8a8370; border-radius: 6px; padding: 0.15em 0.25em; background: #fff; }
+.act-tok.move { font-size: 1.05rem; font-weight: 700; }
+.act-tok.blank { border-style: dashed; color: var(--muted); }
+.act-tok.next { font-size: 1.05rem; font-weight: 700; border-color: var(--gold); }
+.arrow-next { color: var(--muted); }
+.strip-more, .strip-end { color: var(--muted); font-size: 0.85rem; flex: none; }
+@media (prefers-reduced-motion: reduce) { .bubble, .bar-fill { animation: none; transition: none; } }
