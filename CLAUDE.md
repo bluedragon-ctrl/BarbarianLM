@@ -44,7 +44,7 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/saga.ts` | The skald's saga: true sentences from the record, borrowed events, boasts and fantasy by boldness |
 | `src/worker.ts`, `src/workerClient.ts` | The Web Worker that runs `runJob`, and the page's side of it |
 | `src/marks.ts` | Floor marks for the board: pools where monsters fall, his prints after walking through one |
-| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself, watching a lesson), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `trainer.ts` (his model, its stats and the worker jobs), `training.ts` (the Lessons and Practice panels), `charts.ts` (their charts), `dom.ts` |
+| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself, watching a lesson), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `trainer.ts` (his model, its stats and the worker jobs), `training.ts` (the Lessons and Practice panels), `charts.ts` (their charts), `raidAlone.ts` (the Raid alone tab: bars, dial, play, saga), `raidPlay.ts` (its numbers and words, no DOM), `strip.ts` (the memory strip), `dom.ts` |
 
 ## Starting point
 

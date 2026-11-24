@@ -220,3 +220,18 @@ export function footprint() {
     s('ellipse', { cx: 0, cy: 2, rx: 3.2, ry: 5 }),
     s('circle', { cx: -2.6, cy: -5, r: 1.3 }), s('circle', { cx: 0, cy: -6, r: 1.3 }), s('circle', { cx: 2.6, cy: -5, r: 1.3 }));
 }
+
+/** A true saga sentence's mark: a small rune stone. */
+export function runeStone() {
+  return s('g', {},
+    s('path', { d: 'M-9 12 C-12 2 -9 -12 0 -13 C9 -12 12 2 9 12 Z', fill: '#9a948a', stroke: COLORS.ink, 'stroke-width': 1.5 }),
+    s('path', { d: 'M-2 -7 V7 M-2 -6 L4 -1 M-2 0 L4 5', stroke: COLORS.ink, 'stroke-width': 1.8, fill: 'none', 'stroke-linecap': 'round' }));
+}
+
+/** A made-up saga sentence's mark: a grey dashed cloud. */
+export function cloudMark() {
+  return s('path', {
+    d: 'M-12 8 C-17 8 -17 0 -11 -1 C-11 -8 -2 -10 1 -5 C4 -10 13 -8 12 -1 C18 0 17 8 12 8 Z',
+    fill: '#eeece8', stroke: '#7a756e', 'stroke-width': 1.6, 'stroke-dasharray': '3 2.5',
+  });
+}
