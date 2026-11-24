@@ -9,6 +9,7 @@ import type { Dungeon } from '../dungeon';
 import type { CardKey } from '../explain';
 import { DATA } from '../events';
 import { FloorMarks } from '../marks';
+import { codeLabel } from '../mapCode';
 import { Raid, sagaStream, storyStreams, type RaidTurn } from '../raid';
 import { sagaCount, singSaga, type SagaSentence } from '../saga';
 import { hallScript, type HallEntry } from '../storage';
@@ -226,7 +227,7 @@ export class RaidAlone {
 
   private renderTurn(): void {
     const r = this.raid;
-    if (r) this.turnEl.textContent = ` in ${r.dungeon.code} · turn ${r.state.turn} of ${RULES.timeLimit}`;
+    if (r) this.turnEl.textContent = ` in ${codeLabel(r.dungeon.code)} · turn ${r.state.turn} of ${RULES.timeLimit}`;
   }
 
   /** The panel. */
@@ -304,11 +305,11 @@ export class RaidAlone {
         h('thead', {}, h('tr', {}, h('th', {}, '#'), h('th', {}, 'Gold'), h('th', {}, 'Dungeon'), h('th', {}, 'Raid'), h('th', {}, 'Teacher'), h('th', {}, ''))),
         h('tbody', {}, ...hall.map((e, i) => h('tr', {
           class: this.replay === e ? 'playing' : '',
-          title: `Raid ${e.n} in ${e.code}, ${e.turns} turns, boldness ${e.boldness.toFixed(1)}${e.block ? ', impossible actions blocked' : ''}${e.events ? '' : ', no events'}, ${shortDate(e.date)}`,
+          title: `Raid ${e.n} in ${codeLabel(e.code)}, ${e.turns} turns, boldness ${e.boldness.toFixed(1)}${e.block ? ', impossible actions blocked' : ''}${e.events ? '' : ', no events'}, ${shortDate(e.date)}`,
         },
         h('td', {}, String(i + 1)),
         h('td', {}, h('strong', {}, String(e.gold))),
-        h('td', {}, h('span', { class: 'code' }, e.code), e.day ? h('span', { class: 'day-mark', title: e.date.slice(0, 10) === today ? 'Today\'s dungeon of the day' : `The dungeon of the day on ${e.date.slice(0, 10)}` }, ' ☀') : null),
+        h('td', {}, h('span', { class: 'code' }, codeLabel(e.code)), e.day ? h('span', { class: 'day-mark', title: e.date.slice(0, 10) === today ? 'Today\'s dungeon of the day' : `The dungeon of the day on ${e.date.slice(0, 10)}` }, ' ☀') : null),
         h('td', {}, String(e.n)),
         h('td', {}, teacherLabel(e.teacher) ?? '–'),
         h('td', {}, h('button', { class: 'subtle', onclick: () => host.replayEntry(e) }, 'Replay')))))) : null,

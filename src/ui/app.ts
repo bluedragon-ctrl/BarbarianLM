@@ -4,15 +4,16 @@
  * in `trainer.ts`), Raid alone (`raidAlone.ts`, with the memory strip in `strip.ts`), Many raids (`many.ts`), Inside
  * the model (`inside.ts`) and Settings. Small "AI" badges open the AI idea cards (`aiCard.ts`, `src/explain.ts`).
  */
-import { generateDungeon, type Dungeon } from '../dungeon';
+import type { Dungeon } from '../dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel } from '../events';
+import { MAP_CODE_MAX, cleanCode, codeLabel, dungeonFromCode, isMapCode } from '../mapCode';
 import { FloorMarks } from '../marks';
 import type { Raid, RaidTurn } from '../raid';
 import {
   addToHall, dayCode, forgetAll, linkHash, loadHall, loadModel, loadSettings, makesHall, modelFile, packProbs,
   packModel, readLinkHash, readModelFile, saveHall, saveModel, saveSettings, utcDay, type HallEntry, type Store,
 } from '../storage';
-import { normalizeCode, randomCode, rngFrom, type Rng } from '../rng';
+import { randomCode, rngFrom, type Rng } from '../rng';
 import { MONSTER_KINDS, SHOWN, monsterGold, type MonsterKind } from '../tiles';
 import { TeacherRaid, type TeacherName, type TeacherTurn } from '../teachers';
 import { MEMORY_SIZES, type MemoryName } from '../tokens';
@@ -21,7 +22,8 @@ import { DOWN, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, RULES, UP, WAIT, DRINK,
 import type { CardKey } from '../explain';
 import type { StepResult } from '../world';
 import { aiBadge, closeCard } from './aiCard';
-import { Board } from './board';
+import { Board, type CellHandler } from './board';
+import { DungeonEditor, type EditorHost } from './editor';
 import { insidePanel, type InsideHost } from './inside';
 import { ManyRaids, type ManyHost } from './many';
 import { RaidAlone, type RaidHost } from './raidAlone';
@@ -32,7 +34,7 @@ import { DEFAULT_SETTINGS, type Settings } from './settings';
 import { Trainer } from './trainer';
 import { lessonsPanel, practicePanel, theTeacher, watchWords, type TrainingHost } from './training';
 import {
-  COLORS, T, bandage, barbarian, eventSpot, footprint, itemSymbol, lootSack, monsterBody, potion, tileSymbol, torch,
+  COLORS, T, bandage, barbarian, eventSpot, footprint, icon, itemSymbol, lootSack, monsterBody, potion, tileSymbol, torch,
 } from './symbols';
 
 type TabId = 'dungeon' | 'lessons' | 'raid' | 'practice' | 'many' | 'inside' | 'settings';
@@ -103,7 +105,7 @@ function savedSettings(store: Store): Settings {
 /** Milliseconds to wait before saving, so a run of changes is saved once. */
 const SAVE_MS = 400;
 
-export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
+export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, EditorHost {
   tab: TabId = 'dungeon';
   private readonly store: Store = browserStore();
   settings: Settings = savedSettings(this.store);
@@ -117,6 +119,11 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   private fileNote = '';
   dungeon!: Dungeon;
   walk!: Walk;
+  /** The dungeon editor, while a map is being edited on the Dungeon tab. */
+  private editor: DungeonEditor | null = null;
+  private readonly paintCell: CellHandler = (i, first) => this.editor?.press(i, first);
+  /** Why the last code typed or linked could not be opened. */
+  private codeNote = '';
   /** The dungeon before anyone moves: the board on Lessons and Practice when no lesson is being watched. */
   private start!: RaidState;
   readonly trainer = new Trainer(this.settings.memory, () => this.onTrainerChange());
@@ -159,13 +166,20 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
       if (code && code !== this.dungeon.code) { this.setCode(code); this.render(); }
     });
     window.addEventListener('pagehide', () => this.saveNow());
-    this.setCode(this.linkedCode() ?? randomCode());
+    const linked = this.linkedCode();
+    if (linked && !this.setCode(linked)) {
+      // A broken map code in the link: a random dungeon, and the Dungeon tab says why.
+      const why = this.codeNote;
+      this.setCode(randomCode());
+      this.codeNote = why;
+      this.renderPanel();
+    } else if (!linked) this.setCode(randomCode());
   }
 
   /** The dungeon code in the page's link, if any. */
   private linkedCode(): string | null {
     const raw = readLinkHash(location.hash);
-    return raw ? normalizeCode(raw) || null : null;
+    return raw ? cleanCode(raw) || null : null;
   }
 
   // ── Saving ──
@@ -261,15 +275,53 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
     this.renderPanel();
   }
 
-  setCode(code: string): void {
+  /** Put a dungeon on screen by its code; false (and the dungeon on screen kept) if it is a map code that cannot be read. */
+  setCode(code: string): boolean {
+    let d: Dungeon;
+    try {
+      d = dungeonFromCode(code);
+    } catch (err) {
+      this.codeNote = err instanceof Error ? err.message : 'This code could not be opened.';
+      if (this.dungeon && location.hash !== linkHash(this.dungeon.code)) history.replaceState(null, '', linkHash(this.dungeon.code));
+      if (this.dungeon && this.tab === 'dungeon') this.renderPanel();
+      return false;
+    }
+    this.codeNote = '';
+    this.editor = null;
+    this.board.editWith(null);
     this.stopWatch();
     this.watch = null;
     this.raidAlone?.forget();
-    this.dungeon = generateDungeon(code);
+    this.dungeon = d;
     this.start = newRaid(this.dungeon);
     // The address bar always shows the dungeon on screen, so copying it shares the dungeon.
     if (location.hash !== linkHash(code)) history.replaceState(null, '', linkHash(code));
     this.restartWalk();
+    return true;
+  }
+
+  // ── The dungeon editor ──
+
+  private startEdit(): void {
+    this.editor = new DungeonEditor(this, this.dungeon);
+    this.board.reset();
+    this.render();
+  }
+
+  editDone(code: string): void {
+    this.setCode(code);
+  }
+
+  editCancel(): void {
+    this.editor = null;
+    this.board.editWith(null);
+    this.board.reset();
+    this.render();
+  }
+
+  editChanged(): void {
+    this.board.render(this.shown().state, this.boardOptions());
+    this.renderPanel();
   }
 
   trainCode(): string | undefined {
@@ -449,8 +501,16 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (this.tab !== 'dungeon' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (this.tab !== 'dungeon') return;
     const target = e.target as HTMLElement | null;
+    if (this.editor) {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && target?.tagName !== 'INPUT') {
+        e.preventDefault();
+        this.editor.undo();
+      }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON' && e.key === ' ')) return;
     const a = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (a === undefined) return;
@@ -460,6 +520,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
 
   /** What the board shows: your walk on the Dungeon tab, a watched lesson, or the dungeon before anyone moves. */
   private shown(): { state: RaidState; marks: FloorMarks | null; walk: boolean } {
+    if (this.tab === 'dungeon' && this.editor) return { state: this.editor.state(), marks: null, walk: false };
     if (this.tab === 'dungeon') return { state: this.walk.state, marks: this.walk.marks, walk: true };
     if (this.tab === 'raid' || this.tab === 'inside') {
       const r = this.raidAlone.ensure();
@@ -472,8 +533,10 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   private boardOptions() {
     const st = this.settings;
     const sh = this.shown();
+    const editing = this.tab === 'dungeon' && !!this.editor;
     return {
-      dim: st.dim,
+      dim: st.dim && !editing,
+      hero: !editing,
       flicker: st.flicker,
       marks: st.fightMarks ? sh.marks : null,
       // Lessons and practice never have events.
@@ -499,6 +562,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   }
 
   render(): void {
+    this.board.editWith(this.tab === 'dungeon' && this.editor ? this.paintCell : null);
     this.renderTabs();
     this.board.render(this.shown().state, this.boardOptions());
     this.board.say(null);
@@ -543,11 +607,15 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   }
 
   private dungeonPanel(): void {
+    if (this.editor) {
+      add(this.panelEl, ...this.editor.panel());
+      return;
+    }
     const d = this.dungeon;
-    const input = h('input', { type: 'text', 'aria-label': 'Dungeon code', placeholder: 'CODE', maxlength: 12 });
+    const input = h('input', { type: 'text', 'aria-label': 'Dungeon code', placeholder: 'CODE', maxlength: MAP_CODE_MAX });
     const go = () => {
-      const code = normalizeCode(input.value);
-      if (code) this.setCode(code);
+      const code = cleanCode(input.value);
+      if (code && !this.setCode(code)) input.value = code;
     };
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
     const goldTotal = d.gold.reduce((a, b) => a + b, 0) + d.monsters.reduce((a, m) => a + monsterGold(m), 0);
@@ -562,8 +630,9 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
     };
     add(this.panelEl,
       h('h2', {}, 'The dungeon'),
-      h('div', { class: 'code-line' }, h('span', { class: 'muted' }, 'Dungeon code'), h('span', { class: 'code' }, d.code),
-        d.code === today ? h('span', { class: 'day-badge', title: `The same for everyone on ${utcDay(now)} (UTC)` }, '☀ Dungeon of the day') : null),
+      h('div', { class: 'code-line' }, h('span', { class: 'muted' }, 'Dungeon code'), h('span', { class: 'code' }, codeLabel(d.code)),
+        d.code === today ? h('span', { class: 'day-badge', title: `The same for everyone on ${utcDay(now)} (UTC)` }, '☀ Dungeon of the day') : null,
+        isMapCode(d.code) ? h('span', { class: 'muted', title: 'Its whole map is in the link' }, 'made by hand') : null),
       h('div', { class: 'row code-row' },
         h('button', { onclick: () => this.setCode(randomCode()) }, 'New dungeon'),
         input,
@@ -571,7 +640,9 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
       h('div', { class: 'row' },
         h('button', { class: 'subtle', disabled: d.code === today, onclick: () => this.setCode(today), title: 'A new one every day at midnight UTC, the same for everyone' }, '☀ Dungeon of the day'),
         h('button', { class: 'subtle', onclick: copy, title: 'A link to this dungeon. His model stays in your browser.' }, 'Copy link'),
+        h('button', { class: 'subtle', onclick: () => this.startEdit(), title: 'Paint your own dungeon, starting from this one' }, '✎ Edit'),
         copied),
+      this.codeNote ? h('p', { class: 'muted', role: 'alert' }, '✖ ', this.codeNote) : null,
       h('p', { class: 'muted' },
         `${goldTotal} gold in all. `,
         MONSTER_KINDS.map((k) => `${count(k)} ${k}${count(k) === 1 ? '' : 's'}`).join(', '), '.'),
@@ -706,20 +777,6 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
       h('p', { class: 'muted' }, 'A model is just its numbers: a file holds every one of them, so he plays the same on another computer.'),
       h('button', { class: 'subtle', onclick: () => this.forgetSaved() }, 'Forget everything saved'));
   }
-}
-
-/** A small square SVG holding one symbol. */
-function icon(g: SVGElement, scale = 0.6, hatch = false): SVGSVGElement {
-  const size = Math.round(T * scale);
-  const el = s('svg', { width: size, height: size, viewBox: `${-T / 2} ${-T / 2} ${T} ${T}`, class: 'icon', 'aria-hidden': 'true' });
-  if (hatch) {
-    el.append(s('defs', {}, s('pattern', { id: 'legend-hatch', width: 8, height: 8, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
-      s('rect', { width: 8, height: 8, fill: '#15120e', 'fill-opacity': 0.6 }),
-      s('line', { x1: 0, y1: 0, x2: 0, y2: 8, stroke: '#3a332a', 'stroke-width': 3 }))));
-    el.append(s('rect', { x: -T / 2, y: -T / 2, width: T, height: T, fill: COLORS.floor }));
-  }
-  el.append(g);
-  return el;
 }
 
 const heartIcon = (low: boolean) => icon(s('path', {

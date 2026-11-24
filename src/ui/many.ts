@@ -7,6 +7,7 @@
  * are measured once and kept.
  */
 import type { CardKey } from '../explain';
+import { codeLabel } from '../mapCode';
 import type { Model } from '../model';
 import { codesFrom, summary, type RaidCounts, type RaidPlan, type RaidSummary } from '../raids';
 import { TEACHER_LABELS, type TeacherName } from '../teachers';
@@ -146,7 +147,7 @@ export class ManyRaids {
       h('div', { class: 'group' },
         h('h3', {}, 'How many, and where?'),
         radios('manyCount', MANY_COUNTS.map((n) => [n, n.toLocaleString('en')] as [number, string]), this.count, (n) => { this.count = n; }),
-        radios('manyWhere', [['shown', `In ${host.dungeon.code}, the dungeon on screen`], ['new', 'A new dungeon every raid']] as [ManyWhere, string][], this.where, (w) => { this.where = w; }),
+        radios('manyWhere', [['shown', `In ${codeLabel(host.dungeon.code)}, the dungeon on screen`], ['new', 'A new dungeon every raid']] as [ManyWhere, string][], this.where, (w) => { this.where = w; }),
         h('p', { class: 'muted' },
           `Boldness ${st.boldness.toFixed(1)}, impossible actions ${st.block ? 'blocked' : 'not blocked'} (set on Raid alone); events ${st.events ? 'on' : 'off'} (in Settings). `,
           `${TEACHER_LABELS[teacher]} plays the same raids${st.events ? ', without events' : ''}.`),
@@ -165,7 +166,7 @@ export class ManyRaids {
     const his = summary(run.counts!);
     const t = run.teacherCounts ? summary(run.teacherCounts) : null;
     const tName = TEACHER_LABELS[run.teacher];
-    const where = run.where === 'shown' ? `in ${run.code}` : 'each in a new dungeon';
+    const where = run.where === 'shown' ? `in ${codeLabel(run.code)}` : 'each in a new dungeon';
     const trainedNow = this.host.trainer.stats.lessons + this.host.trainer.stats.practiceRaids;
     const stale = run.model !== this.host.trainer.model && !run.running;
     return h('div', { class: 'group many-results' },

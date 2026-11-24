@@ -4,6 +4,7 @@
  * action's chances, and the few inputs that pushed hardest toward the likeliest one (each left out in turn).
  */
 import type { CardKey } from '../explain';
+import { codeLabel } from '../mapCode';
 import { HIDDEN, N_OUT, decide, parameterCount, withoutEach } from '../model';
 import type { Raid } from '../raid';
 import { PAIR_SIZE, PINNED_SIZE, VIEW_CELLS, CELL_SIZE, VIEW_INPUTS, inputWords } from '../tokens';
@@ -80,12 +81,12 @@ export function insidePanel(host: InsideHost): (HTMLElement | null)[] {
 /** The raid on screen: the next action's chances and what pushed the likeliest one. */
 function nowGroup(host: InsideHost, raid: Raid): HTMLElement {
   const head = h('h3', {}, 'Right now');
-  const where = `Raid ${raid.n} in ${raid.dungeon.code}, turn ${raid.state.turn}, at boldness ${host.settings.boldness.toFixed(1)} (from the Raid alone tab).`;
+  const where = `Raid ${raid.n} in ${codeLabel(raid.dungeon.code)}, turn ${raid.state.turn}, at boldness ${host.settings.boldness.toFixed(1)} (from the Raid alone tab).`;
   if (raid.state.ended) {
-    return h('div', { class: 'group' }, head, h('p', { class: 'muted' }, `Raid ${raid.n} in ${raid.dungeon.code} is over. Start a new raid on the Raid alone tab to look inside again.`));
+    return h('div', { class: 'group' }, head, h('p', { class: 'muted' }, `Raid ${raid.n} in ${codeLabel(raid.dungeon.code)} is over. Start a new raid on the Raid alone tab to look inside again.`));
   }
   if (!raid.model) {
-    return h('div', { class: 'group' }, head, h('p', { class: 'muted' }, `A replay from the hall of fame is on the Raid alone tab: raid ${raid.n} in ${raid.dungeon.code}, played back without a model. Start a new raid there to look inside again.`));
+    return h('div', { class: 'group' }, head, h('p', { class: 'muted' }, `A replay from the hall of fame is on the Raid alone tab: raid ${raid.n} in ${codeLabel(raid.dungeon.code)}, played back without a model. Start a new raid there to look inside again.`));
   }
   raid.options.temperature = host.settings.boldness;
   raid.options.block = host.settings.block;
