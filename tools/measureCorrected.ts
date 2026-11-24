@@ -8,7 +8,7 @@
  *   4. `lessons + corrected` corrected raids from nothing.
  * Then each raids alone on the test codes (or the test raids of --dungeon CODE), block off.
  *
- * Options: --memory, --teachers a,b, --dungeon CODE, --temperature T (test boldness), --loop '{json}', --skip 1,4.
+ * Options: --memory, --hidden N (hidden units, default 48), --teachers a,b, --dungeon CODE, --temperature T (test boldness), --loop '{json}', --skip 1,4.
  */
 import { createAdam, createModel, type Model } from '../src/model';
 import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
@@ -40,7 +40,7 @@ export function main(args: string[]) {
   const codes = codesFrom('measure-training', tests);
   const plan = dungeon ? { code: dungeon, count: tests } : { codes };
   const test = (m: Model) => summary(manyRaids(m, plan, { temperature }));
-  console.log(`${memory} memory; ${tests} test ${dungeon ? `raids in ${dungeon}` : 'codes'} at boldness ${temperature}; ` +
+  console.log(`${memory} memory, ${opt(args, '--hidden') ?? 48} hidden; ${tests} test ${dungeon ? `raids in ${dungeon}` : 'codes'} at boldness ${temperature}; ` +
     `corrected raids at boldness ${LOOP.correctedTemperature}\n`);
   console.log(`${'teacher'.padEnd(10)} ${'training'.padEnd(34)} loss   ${HEAD}`);
   for (const teacher of teachers) {
@@ -53,7 +53,7 @@ export function main(args: string[]) {
     for (const [k, label, parts] of runs) {
       if (skip.includes(k)) continue;
       const t0 = Date.now();
-      const m = createModel(inputSize(MEMORY_SIZES[memory]), 'measure');
+      const m = createModel(inputSize(MEMORY_SIZES[memory]), 'measure', Number(opt(args, '--hidden') ?? 48));
       const adam = createAdam(m);
       const stats = newStats();
       parts.forEach(([count, c], i) => trainLessons(m, adam, teacher, count, stats, mulberry32(1 + i), { test: false, dungeon, corrected: c }));
