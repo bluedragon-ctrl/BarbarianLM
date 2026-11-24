@@ -4,9 +4,9 @@
  * in `trainer.ts`), Raid alone (`raidAlone.ts`, with the memory strip in `strip.ts`), Many raids (`many.ts`), Inside
  * the model (`inside.ts`) and Settings. Small "AI" badges open the AI idea cards (`aiCard.ts`, `src/explain.ts`).
  */
-import type { Dungeon } from '../dungeon';
+import { raidDungeon, type Dungeon } from '../dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel } from '../events';
-import { MAP_CODE_MAX, cleanCode, codeLabel, dungeonFromCode, isMapCode } from '../mapCode';
+import { MAP_CODE_MAX, TREASURE_LABEL, baseCode, cleanCode, codeLabel, dungeonFromCode, isMapCode, isTreasureCode, treasureCode } from '../mapCode';
 import { FloorMarks } from '../marks';
 import type { Raid, RaidTurn } from '../raid';
 import {
@@ -97,7 +97,7 @@ function browserStore(): Store {
 
 /** Saved settings, each checked against the defaults (see "Save and links" in the design). */
 function savedSettings(store: Store): Settings {
-  const st = loadSettings(store, DEFAULT_SETTINGS, { memory: Object.keys(MEMORY_SIZES), trainIn: ['shown', 'new'] });
+  const st = loadSettings(store, DEFAULT_SETTINGS, { memory: Object.keys(MEMORY_SIZES), trainIn: ['shown', 'treasure', 'new'] });
   st.boldness = Math.min(BOLDNESS.max, Math.max(BOLDNESS.min, Math.round(st.boldness * 10) / 10));
   return st;
 }
@@ -165,7 +165,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
     }
     window.addEventListener('hashchange', () => {
       const code = this.linkedCode();
-      if (code && code !== this.dungeon.code) { this.setCode(code); this.render(); }
+      if (code && code !== baseCode(this.dungeon.code)) { this.setCode(code); this.render(); }
     });
     window.addEventListener('pagehide', () => this.saveNow());
     const linked = this.linkedCode();
@@ -216,7 +216,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
       gold: st.gold, turns: st.turn, code: raid.dungeon.code, n: raid.n,
       boldness: set.boldness, block: !!raid.options.block, events: !!raid.events, newSpots: set.newSpots,
       teacher: tr.mainTeacher(), trained: tr.stats.lessons + tr.stats.practiceRaids, memory: tr.memory,
-      date: now.toISOString(), day: raid.dungeon.code === dayCode(now),
+      date: now.toISOString(), day: baseCode(raid.dungeon.code) === dayCode(now),
       actions: raid.turns.map((t) => t.action).join(''), probs: packProbs(raid.turns.map((t) => t.probs)),
     };
     this.hall = addToHall(this.hall, e);
@@ -226,7 +226,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
   }
 
   replayEntry(e: HallEntry): void {
-    if (this.dungeon.code !== e.code) this.setCode(e.code);
+    if (this.dungeon.code !== e.code) this.setCode(e.code, true);
     this.raidAlone.playBack(e);
     this.board.reset();
     this.render();
@@ -277,14 +277,19 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
     this.renderPanel();
   }
 
-  /** Put a dungeon on screen by its code; false (and the dungeon on screen kept) if it is a map code that cannot be read. */
-  setCode(code: string): boolean {
+  /**
+   * Put a dungeon on screen by its code, with new treasure every raid if the setting says so (`exact`: the code as
+   * it is, for a hall of fame replay); false (and the dungeon on screen kept) if it is a map code that cannot be read.
+   */
+  setCode(code: string, exact = false): boolean {
     let d: Dungeon;
+    const wanted = exact ? code : this.settings.trainIn === 'treasure' ? treasureCode(baseCode(code)) : baseCode(code);
+    code = baseCode(code);
     try {
-      d = dungeonFromCode(code);
+      d = dungeonFromCode(wanted);
     } catch (err) {
       this.codeNote = err instanceof Error ? err.message : 'This code could not be opened.';
-      if (this.dungeon && location.hash !== linkHash(this.dungeon.code)) history.replaceState(null, '', linkHash(this.dungeon.code));
+      if (this.dungeon && location.hash !== linkHash(baseCode(this.dungeon.code))) history.replaceState(null, '', linkHash(baseCode(this.dungeon.code)));
       if (this.dungeon && this.tab === 'dungeon') this.renderPanel();
       return false;
     }
@@ -295,7 +300,8 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
     this.watch = null;
     this.raidAlone?.forget();
     this.dungeon = d;
-    this.start = newRaid(this.dungeon);
+    // With new treasure every raid, the board before anyone moves shows your walk's treasure.
+    this.start = newRaid(raidDungeon(d, 'you'));
     // The address bar always shows the dungeon on screen, so copying it shares the dungeon.
     if (location.hash !== linkHash(code)) history.replaceState(null, '', linkHash(code));
     this.restartWalk();
@@ -327,7 +333,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
   }
 
   trainCode(): string | undefined {
-    return this.settings.trainIn === 'shown' ? this.dungeon.code : undefined;
+    return this.settings.trainIn === 'new' ? undefined : this.dungeon.code;
   }
 
   choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'corrected' | 'judge' | 'practiceCount'>>): void {
@@ -473,12 +479,13 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
 
   restartWalk(): void {
     const d = this.dungeon;
-    const state = newRaid(d);
+    // Your walk counts as its own raid, "you", with streams (and, with new treasure every raid, treasure) of its own.
+    const here = raidDungeon(d, 'you');
+    const state = newRaid(here);
     let events: EventTracker | null = null;
     if (this.settings.events) {
-      // Your walk counts as its own raid, "you", with streams of its own (see docs/plan.md).
       const label = this.settings.newSpots ? `${d.code}|events|you` : spotsLabel(d.code);
-      events = new EventTracker({ spots: placeEvents(d, label), cast: CAST }, rngFrom(`${d.code}|you|story`), state);
+      events = new EventTracker({ spots: placeEvents(here, label), cast: CAST }, rngFrom(`${d.code}|you|story`), state);
     }
     this.walk = { state, marks: new FloorMarks(state.pos), monsterRng: rngFrom(`${d.code}|you|monsters`), events, last: '' };
     this.board.reset();
@@ -614,7 +621,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
       add(this.panelEl, ...this.editor.panel());
       return;
     }
-    const d = this.dungeon;
+    const d = raidDungeon(this.dungeon, 'you');
     const input = h('input', { type: 'text', 'aria-label': 'Dungeon code', placeholder: 'CODE', maxlength: MAP_CODE_MAX });
     const go = () => {
       const code = cleanCode(input.value);
@@ -634,14 +641,14 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
     add(this.panelEl,
       h('h2', {}, 'The dungeon'),
       h('div', { class: 'code-line' }, h('span', { class: 'muted' }, 'Dungeon code'), h('span', { class: 'code' }, codeLabel(d.code)),
-        d.code === today ? h('span', { class: 'day-badge', title: `The same for everyone on ${utcDay(now)} (UTC)` }, '☀ Dungeon of the day') : null,
+        baseCode(d.code) === today ? h('span', { class: 'day-badge', title: `The same for everyone on ${utcDay(now)} (UTC)` }, '☀ Dungeon of the day') : null,
         isMapCode(d.code) ? h('span', { class: 'muted', title: 'Its whole map is in the link' }, 'made by hand') : null),
       h('div', { class: 'row code-row' },
         h('button', { onclick: () => this.setCode(randomCode()) }, 'New dungeon'),
         input,
         h('button', { onclick: go }, 'Go')),
       h('div', { class: 'row' },
-        h('button', { class: 'subtle', disabled: d.code === today, onclick: () => this.setCode(today), title: 'A new one every day at midnight UTC, the same for everyone' }, '☀ Dungeon of the day'),
+        h('button', { class: 'subtle', disabled: baseCode(d.code) === today, onclick: () => this.setCode(today), title: 'A new one every day at midnight UTC, the same for everyone' }, '☀ Dungeon of the day'),
         h('button', { class: 'subtle', onclick: copy, title: 'A link to this dungeon. His model stays in your browser.' }, 'Copy link'),
         h('button', { class: 'subtle', onclick: () => this.startEdit(), title: 'Paint your own dungeon, starting from this one' }, '✎ Edit'),
         copied),
@@ -649,6 +656,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
       h('p', { class: 'muted' },
         `${goldTotal} gold in all. `,
         MONSTER_KINDS.map((k) => `${count(k)} ${k}${count(k) === 1 ? '' : 's'}`).join(', '), '.'),
+      isTreasureCode(d.code) ? h('p', { class: 'muted' }, `${TREASURE_LABEL} New treasure every raid: the walls stay, but gold, monsters, items and traps are placed afresh each time. This is where they lie for your walk. (Settings)`) : null,
       h('p', { class: 'caption' }, 'You see the whole dungeon. He sees only the lit cells around him; the dark, hatched cells are missing from his view.'),
       this.walkGroup(),
       this.legend());
@@ -725,6 +733,8 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
       }
       this.settings = { ...this.settings, [k]: v };
       this.saveSoon();
+      // New treasure every raid, or not: the dungeon on screen follows.
+      if (k === 'trainIn') { this.setCode(this.dungeon.code); this.render(); return; }
       if (restart) this.restartWalk();
       else this.render();
     };
@@ -744,8 +754,11 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
         radio('memory', (Object.keys(MEMORY_SIZES) as MemoryName[]).map((m) => [m, `${MEMORY_LABELS[m]} (${MEMORY_SIZES[m]})`])),
         h('p', { class: 'muted' }, 'How many past views and actions he remembers. Set it before lessons: it fixes the size of his model, so changing it later starts him afresh.')),
       h('div', { class: 'group' },
-        h('h3', {}, 'Lessons and practice'),
-        radio('trainIn', [['shown', 'In the dungeon on screen'], ['new', 'A new dungeon every raid']]),
+        h('h3', {}, 'Where he raids'),
+        radio('trainIn', [['shown', 'In the dungeon on screen'], ['treasure', `In the dungeon on screen, new treasure every raid ${TREASURE_LABEL}`], ['new', 'Lessons and practice in a new dungeon every raid']]),
+        h('p', { class: 'muted' }, st.trainIn === 'treasure'
+          ? 'The walls stay; gold, monsters, items and traps move every raid, for lessons, practice, raids alone and many raids. He can learn the map, but must look for the treasure. A dungeon made by hand keeps its own.'
+          : st.trainIn === 'shown' ? 'Lessons, practice, raids alone and many raids all happen in the dungeon on screen.' : 'Raids alone stay in the dungeon on screen.'),
         busy ? h('p', { class: 'muted' }, 'These wait until his lessons or practice are done.') : null),
       h('div', { class: 'group' },
         h('h3', {}, 'Hidden events'),

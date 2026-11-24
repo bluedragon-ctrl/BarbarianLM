@@ -7,7 +7,7 @@ import type { Dungeon } from './dungeon';
 import { dungeonFromCode } from './mapCode';
 import { adamStep, clearGrads, createAdam, imitationGrad, policyGrad, sgdStep, zeroGrads, type Adam, type Model, type Grads } from './model';
 import { Raid, memoryPairs, raid, type EventOptions, type RaidRecord } from './raid';
-import { codesFrom, countRaid, manyRaids, newCounts, raidsOf, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
+import { codesFrom, countRaid, manyRaids, newCounts, raidsOf, summary, testRaids, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
 import { mulberry32, randomCode, rngFrom, shuffle, type Rng } from './rng';
 import { MONSTER_STATS, type MonsterKind } from './tiles';
 import { TEACHERS, newTeacher, teacherRaid, type TeacherName } from './teachers';
@@ -153,9 +153,9 @@ function nextDungeon(code: string | undefined, rng: Rng, cache: Map<string, Dung
   return [d, code ? n : 0];
 }
 
-/** The test raids: 20 fixed codes, or raids 0–19 of the one training dungeon. */
+/** The test raids: 20 fixed codes, or raids 0–19 of the one training dungeon (with new treasure, raids he never trained on). */
 export const evalPlan = (code?: string): RaidPlan =>
-  code ? { code, count: LOOP.evalRaids } : { codes: codesFrom('eval', LOOP.evalRaids) };
+  code ? testRaids(code, LOOP.evalRaids) : { codes: codesFrom('eval', LOOP.evalRaids) };
 
 /** Where test raids happen, as `EvalPoint.where` names it. */
 export const testsIn = (code?: string): string => code ?? 'new';

@@ -12,7 +12,7 @@
  */
 import { RULES } from '../src/world';
 import { createModel, type Model } from '../src/model';
-import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
+import { codesFrom, manyRaids, summary, testRaids, type RaidSummary } from '../src/raids';
 import { mulberry32 } from '../src/rng';
 import { TEACHERS, type TeacherName } from '../src/teachers';
 import { MEMORY_SIZES, inputSize, type MemoryName } from '../src/tokens';
@@ -47,7 +47,7 @@ export function main(args: string[]) {
   // --dungeon CODE: lessons, practice and tests all in that one dungeon (tests are its raids 0, 1, 2…).
   const dungeon = opt(args, '--dungeon');
   const codes = codesFrom('measure-training', tests);
-  const plan = dungeon ? { code: dungeon, count: tests } : { codes };
+  const plan = dungeon ? testRaids(dungeon, tests) : { codes };
   const test = (m: Model, block = false) => summary(manyRaids(m, plan, { temperature, block }));
   console.log(`${lessons} lessons, ${practice} practice raids; ${tests} test ${dungeon ? `raids in ${dungeon}` : 'codes'} at boldness ${temperature}\n`);
 

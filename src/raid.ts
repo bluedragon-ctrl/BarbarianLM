@@ -6,7 +6,7 @@
  * follow (`events.ts`, from their own streams). The record of every turn is kept for practice, thoughts, the saga
  * and the UI. No DOM.
  */
-import type { Dungeon } from './dungeon';
+import { raidDungeon, type Dungeon } from './dungeon';
 import { dungeonFromCode } from './mapCode';
 import { CAST, EventTracker, placeEvents, spotsLabel, type EventKind, type EventMet, type EventSpot } from './events';
 import { decide, mask, sampleIndex, type Model } from './model';
@@ -130,13 +130,15 @@ export class Raid {
   /** `model` is null only for a replay (`options.script`). */
   constructor(readonly model: Model | null, readonly dungeon: Dungeon, readonly n = 0, readonly options: RaidOptions = {}) {
     if (!model && !options.script) throw new Error('A raid needs a model or a script');
-    this.state = newRaid(dungeon);
+    // With new treasure every raid, this raid's own contents (the same walls).
+    const here = raidDungeon(dungeon, n);
+    this.state = newRaid(here);
     this.memory = newMemory(options.script ? options.script.memory : memoryPairs(model!));
     this.streams = raidStreams(dungeon.code, n);
     if (options.events) {
       const o = options.events === true ? {} : options.events;
       const cast = o.cast ?? CAST;
-      const spots = placeEvents(dungeon, spotsLabel(dungeon.code, o.newSpots === false ? undefined : n), cast);
+      const spots = placeEvents(here, spotsLabel(dungeon.code, o.newSpots === false ? undefined : n), cast);
       this.events = new EventTracker({ spots, cast }, storyStreams(dungeon.code, n).events, this.state);
     }
   }

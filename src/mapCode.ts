@@ -56,11 +56,26 @@ export function cleanCode(raw: string): string {
 
 /** The short name a code is shown by: a generated code as it is, a map code as ✎ and four letters from it. */
 export function codeLabel(code: string): string {
+  if (isTreasureCode(code)) return `${baseCode(code)}${TREASURE_LABEL}`;
   return isMapCode(code) ? `✎${randomCode(rngFrom(`label|${code}`)).slice(0, 4)}` : code;
 }
 
-/** Any code's dungeon: a map code read back, any other from the generator. */
+/**
+ * New treasure every raid: a generated dungeon's code with this mark after it gives the same walls, with gold,
+ * monsters, items and traps placed afresh for each raid. It never comes from typing or a link (`cleanCode` drops
+ * it); the setting adds it. A hand-made dungeon keeps the treasure it was painted with.
+ */
+export const TREASURE_MARK = '*';
+/** How a code with new treasure every raid is shown: "QWERTY✦". */
+export const TREASURE_LABEL = '✦';
+export const isTreasureCode = (code: string): boolean => code.endsWith(TREASURE_MARK) && !isMapCode(code);
+export const baseCode = (code: string): string => (isTreasureCode(code) ? code.slice(0, -TREASURE_MARK.length) : code);
+/** The code with new treasure every raid (a map code stays as it is). */
+export const treasureCode = (code: string): string => (isMapCode(code) || isTreasureCode(code) ? code : code + TREASURE_MARK);
+
+/** Any code's dungeon: a map code read back, any other from the generator (with new treasure every raid if marked). */
 export function dungeonFromCode(code: string): Dungeon {
+  if (isTreasureCode(code)) return { ...generateDungeon(baseCode(code)), code, treasure: true };
   return isMapCode(code) ? readMapCode(code) : generateDungeon(code);
 }
 

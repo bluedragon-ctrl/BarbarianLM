@@ -57,6 +57,8 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | The dragonslayer's student striking a dragon without the buffs | Copying an expert's action without the condition that made it right |
 | The dwarf with his own pickaxe (digs in one blow; the barbarian needs several) | Distillation from a stronger model: the student copies moves it cannot really do |
 | Teachers remember the whole map they have seen; he remembers only his memory strip | The examples were written by someone who knew more than the context shows |
+| New treasure every raid in the same dungeon: he can learn the map, but must look for the gold | Knowledge in the weights (learned in training) against facts in the context (only true now): a model knows the world it was trained on, but has to read today's facts |
+| With fixed treasure he walks to where the gold always was | Memorising the training data instead of learning to look, and repeating out-of-date facts |
 | Corrected raids: he raids, the teacher says at every turn what it would do from there | Exposure bias, and training on the model's own outputs with corrections (DAgger; in chatbots, on-policy fine-tuning) |
 | Corrected alone, he gets worse: the teacher's corrections lean on map it remembers and he cannot | Corrections that use knowledge missing from the context teach guessing, not knowing |
 | Every judge takes points off a knock-out | A penalty in the reward for the worst outcomes, not only less reward |
@@ -624,6 +626,29 @@ Only one card pulses at a time (the newest), each only once a session; the pulse
 
 **Dungeon of the day** (step 8.5): a code from its own stream, `day|YYYY-MM-DD` with the **UTC** date (`dayCode` in `src/storage.ts`), so it is the same for everyone at the same moment and changes at 01:00 in Prague (02:00 in summer). A "☀ Dungeon of the day" button on the Dungeon tab puts it on screen, and a badge next to the code says when the dungeon on screen is today's. The page still opens on a random code (or the linked one). Not chosen: the local date (two players could have different dungeons for some hours), opening on it, or a tab of its own.
 
+**New treasure every raid** (chosen with the owner, after corrected raids; `newTreasure` and `raidDungeon` in `src/dungeon.ts`, the codes in `src/mapCode.ts`). A third choice for where he raids, in Settings ("Where he raids"): **In the dungeon on screen**, **In the dungeon on screen, new treasure every raid ✦**, or **Lessons and practice in a new dungeon every raid**. With new treasure, the walls, cracked walls and stairs stay, and every raid places gold, monsters, items and traps afresh by the generator's own rules (by depth, trolls and dragons on their heaps, nothing within 5 steps of the stairs), from the stream `code|n|treasure`. He can learn the map into his weights, but has to look for the treasure.
+
+- **One code for it:** the code with `*` after it (`QWERTY*`), shown as "QWERTY✦". `dungeonFromCode` gives the same walls with `treasure` set, and every raid's start (`Raid`, `TeacherRaid`, your walk) asks `raidDungeon(d, n)` for raid `n`'s contents. So lessons, corrected raids, practice, test raids, the teachers' numbers, raids alone, many raids and hall of fame replays all follow it, in the worker too, and raid `n` always has the same treasure for him and for every teacher. Its raids are not the plain code's: the streams start from `QWERTY*`.
+- **Never typed or linked:** `cleanCode` drops the `*`, and links carry the plain code; the setting adds it to the dungeon on screen (changing the setting puts the same dungeon back with or without it). A hall of fame raid is replayed in its own code, whatever the setting.
+- **Hand-made dungeons keep their treasure:** the treasure you painted is the point of them.
+- **Test raids** in such a dungeon are raids 1,000,000 onward (`TEST_RAIDS_FROM`), treasure no lesson or practice raid ever had; with fixed treasure they are raids 0–19 as before. The panels say so.
+- **The Dungeon tab** shows the treasure of your walk (raid "you"), with a line saying it moves every raid; the Lessons and Practice board shows the same.
+- The generator is untouched: no code changes, the plain dungeon is generated exactly as before, and no input changes, so saved models still load.
+- Not chosen: teachers that know the whole map (they still explore to see the walls, as he must); a later test.
+
+**Measured** (`npm run measure:corrected -- 1000 1000 200 --teachers healer --skip 1,4 --dungeon CODE --seed S`, seeds 1–4; medium memory; 200 test raids, with new treasure on treasure he never trained on; gold out as the mean of the 4 seeds ± its standard error, the four runs in brackets):
+
+| Dungeon | 2,000 lessons | 1,000 lessons + 1,000 corrected | Imitation loss (lessons) |
+| --- | --- | --- | --- |
+| BCDEFG, fixed treasure | **21.8** ± 4.6 (28.5, 18.0, 10.5, 30.3) | 18.2 ± 5.7 (9.9, 8.3, 21.9, 32.6) | 0.36 |
+| BCDEFG✦ | 13.7 ± 4.3 (4.9, 23.2, 18.4, 8.4) | 15.6 ± 5.5 (25.7, 8.7, 3.7, 24.1) | 0.54 |
+| QWERTY, fixed treasure | 11.7 ± 4.4 (9.8, 10.8, 2.5, 23.7) | 13.7 ± 3.4 (20.3, 10.4, 5.7, 18.3) | 0.27 |
+| QWERTY✦ | **14.3** ± 1.6 (15.9, 9.4, 15.5, 16.3) | 6.2 ± 2.4 (12.8, 6.1, 4.5, 1.5) | 0.46 |
+
+- **He learns the map, not only the treasure.** On treasure he never saw he still carries out about 14 gold, twice what 2,000 lessons give over new dungeons (7.1). In BCDEFG fixed treasure gives more (21.8): part of that was knowing where the gold lies, which the higher imitation loss with new treasure also shows (0.54 against 0.36). In QWERTY new treasure does no worse.
+- **Corrected raids still do not help.** With new treasure they gain nothing in BCDEFG (within the noise) and lose clearly in QWERTY (6.2 against 14.3). Knowing the walls takes away only part of the teacher's advantage: it still steers by gold and monsters it saw many turns ago, out of his memory strip.
+- **Runs in one dungeon swing 3–10-fold** between seeds; a single run says little. Four seeds are the least for a comparison here.
+
 **The dungeon editor** (chosen with the owner; `src/mapCode.ts` with no DOM, the panel in `src/ui/editor.ts`). **✎ Edit** on the Dungeon tab turns the board into a canvas for the dungeon on screen; **Clear to stone** starts from solid stone instead.
 
 - **Painting:** click or drag on the board with a brush: floor, stone wall, cracked wall, stairs, spike trap, gold (1–30 in a pile, a heap from 6), potion, torch, strength, vigour, and the four monsters (with a "Rich" box). Floor clears a cell; a wall or item clears what was on it; a monster stands on floor. The bedrock edge stays. The stairs move to where they are painted, and nothing else is painted over them, so there is never more than one. **Undo** (Ctrl+Z, 50 steps) and **Cancel**. Using a map with no change keeps the dungeon as it was, code and all. While editing, the board shows the whole map with no light and without him, and the walk keys do nothing.
@@ -723,7 +748,7 @@ Everything above: one level, 5 monsters (the dragon added after step 8) with wou
 - Hidden traps: he cannot avoid what is not in his input.
 - Deeper levels: "go down or leave".
 - New items, each a pinned token and an action: key and door, bomb, shield.
-- Teacher correcting his own trips (on-policy lessons, RLHF-like): built as corrected raids, an experiment that does not help yet; a teacher that knows only what his memory holds might.
+- Teacher correcting his own trips (on-policy lessons, RLHF-like): built as corrected raids, an experiment that does not help yet, over new dungeons or with new treasure in a known map; a teacher that knows only what his memory holds might, or inputs for what he has seen (a compass to the nearest gold seen but not taken).
 - Mobile monsters with more flags: fast, slow, cowardly (runs when wounded).
 
 ### Open questions

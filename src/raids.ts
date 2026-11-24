@@ -3,7 +3,7 @@
  * from "left": a player that takes Leave on the first turn would otherwise look safe. No DOM.
  */
 import type { Dungeon } from './dungeon';
-import { dungeonFromCode } from './mapCode';
+import { dungeonFromCode, isTreasureCode } from './mapCode';
 import type { Model } from './model';
 import type { StepResult } from './world';
 import { raid, type RaidOptions, type RaidRecord } from './raid';
@@ -100,8 +100,18 @@ export function summary(c: RaidCounts): RaidSummary {
   return out;
 }
 
-/** Which raids to play: raid numbers 0, 1, 2… of one dungeon, or raid 0 of many codes. */
-export type RaidPlan = { code: string; count: number } | { codes: readonly string[] };
+/** Which raids to play: raid numbers `from` (default 0), `from` + 1… of one dungeon, or raid 0 of many codes. */
+export type RaidPlan = { code: string; count: number; from?: number } | { codes: readonly string[] };
+
+/**
+ * Where test raids are numbered from in a dungeon with new treasure every raid: far past any training raid, so he
+ * is tested on treasure he never trained on. With fixed treasure every raid has the same treasure, so they start at 0.
+ */
+export const TEST_RAIDS_FROM = 1_000_000;
+
+/** `count` test raids in one dungeon (see `TEST_RAIDS_FROM`). */
+export const testRaids = (code: string, count: number): RaidPlan =>
+  isTreasureCode(code) ? { code, count, from: TEST_RAIDS_FROM } : { code, count };
 
 /** `count` dungeon codes, the same for the same seed. */
 export const codesFrom = (seed: string, count: number): string[] => {
@@ -113,7 +123,8 @@ export const codesFrom = (seed: string, count: number): string[] => {
 export function* raidsOf(plan: RaidPlan): Generator<[Dungeon, number]> {
   if ('code' in plan) {
     const d = dungeonFromCode(plan.code);
-    for (let n = 0; n < plan.count; n++) yield [d, n];
+    const from = plan.from ?? 0;
+    for (let n = from; n < from + plan.count; n++) yield [d, n];
   } else {
     for (const code of plan.codes) yield [dungeonFromCode(code), 0];
   }
