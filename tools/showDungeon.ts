@@ -5,7 +5,7 @@
 import { dungeonFromCode, mapCode } from '../src/mapCode';
 import { BEDROCK, FLOOR, GOLD, HEAP_FROM, POTION, STAIRS, STRENGTH, TORCH, TRAP, VIGOUR, WALL, CRACKED_HP } from '../src/tiles';
 
-const MONSTER_CHAR = { rat: 'r', goblin: 'g', slime: 's', troll: 'T' } as const;
+const MONSTER_CHAR = { rat: 'r', goblin: 'g', slime: 's', troll: 'T', dragon: 'D' } as const;
 
 export function render(code: string): string {
   const d = dungeonFromCode(code);

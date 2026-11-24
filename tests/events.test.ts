@@ -206,6 +206,8 @@ describe('following a raid', () => {
 
 describe('the random-stream promise', () => {
   const model = createModel(inputSize(MEMORY_SIZES.short), 'events');
+  // Untrained models meet an event with an effect only now and then: a few of them, so the test is never empty.
+  const models = ['events', 'events-b', 'events-c'].map((seed) => createModel(inputSize(MEMORY_SIZES.short), seed));
   const trace = (r: RaidRecord) => r.turns.map((t) => [t.action, t.result.did, t.result.hits.length]);
   const firstEffect = (r: RaidRecord) => r.turns.findIndex((t) => t.events?.some((e) => e.effect));
   const noEffects = CAST.map(({ effect: _e, deed: _d, quiet: _q, quietThoughts: _t, ...k }) => k);
@@ -215,7 +217,7 @@ describe('the random-stream promise', () => {
     let effects = 0;
     let met = 0;
     for (const code of CODES) {
-      for (const n of [0, 1]) {
+      for (const [n, model] of models.entries()) {
         const off = raid(model, code, n);
         const on = raid(model, code, n, { events: true });
         met += on.events!.met.length;

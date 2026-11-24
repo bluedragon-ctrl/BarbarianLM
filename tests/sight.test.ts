@@ -77,7 +77,7 @@ describe('sight', () => {
     const v = view(s);
     expect(v[2 * 5 + 3]).toEqual({ kind: MONSTER_VIEW_KIND('goblin'), wounded: true, rich: true });
     expect(v[2 * 5 + 4].kind).toBe(SHOWN.floor);
-    expect(VIEW_KINDS).toBe(17);
+    expect(VIEW_KINDS).toBe(18);
   });
 
   it('is the same both ways round, over random dungeons', () => {

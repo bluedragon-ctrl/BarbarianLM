@@ -1,5 +1,5 @@
 /**
- * Hand-made dungeons (the dungeon editor). A dungeon made or changed in the editor travels as a **map code**: `~1`
+ * Hand-made dungeons (the dungeon editor). A dungeon made or changed in the editor travels as a **map code**: `~2`
  * and then the map itself, packed in URL-safe characters, so it works everywhere a generated dungeon's code does
  * (links, the hall of fame, lessons and many raids in the worker, the raids' random streams). `dungeonFromCode`
  * turns any code into its dungeon: a map code is read back, any other code goes to the generator.
@@ -20,8 +20,8 @@ import {
 
 /** Every map code starts with this (a generated code never does). */
 export const MAP_PREFIX = '~';
-/** The packing's version, after the prefix. */
-const VERSION = '1';
+/** The packing's version, after the prefix: 2 since the dragon. Version 1 (four monster kinds) is still read. */
+const VERSION = '2';
 /** The longest map code read (a map that packs worse than this is refused). */
 export const MAP_CODE_MAX = 900;
 
@@ -30,10 +30,14 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
 // One character per cell kind; rich monsters after the plain ones.
 const C_FLOOR = 0, C_WALL = 1, C_CRACKED = 2, C_BEDROCK = 3, C_STAIRS = 4, C_TRAP = 5, C_POTION = 6, C_TORCH = 7,
   C_STRENGTH = 8, C_VIGOUR = 9, C_GOLD = 10, C_MONSTER = 11;
-const KINDS = C_MONSTER + 2 * MONSTER_KINDS.length;
-/** A character from here on repeats the cell before it (value − REPEAT + 1) more times. */
-const REPEAT = KINDS;
-const MAX_REPEAT = ALPHABET.length - REPEAT;
+/** The monster kinds each packing version knows, in order: version 1 had no dragon. */
+const VERSION_KINDS: Record<string, readonly MonsterKind[]> = { 1: MONSTER_KINDS.slice(0, 4), 2: MONSTER_KINDS };
+/** A character from `repeat` on repeats the cell before it (value − repeat + 1) more times. */
+const layout = (kinds: readonly MonsterKind[]) => {
+  const repeat = C_MONSTER + 2 * kinds.length;
+  return { kinds, repeat, maxRepeat: ALPHABET.length - repeat };
+};
+const { repeat: REPEAT, maxRepeat: MAX_REPEAT } = layout(MONSTER_KINDS);
 
 const ITEM_CELL: Partial<Record<Tile, number>> = {
   [FLOOR]: C_FLOOR, [BEDROCK]: C_BEDROCK, [STAIRS]: C_STAIRS, [TRAP]: C_TRAP, [POTION]: C_POTION, [TORCH]: C_TORCH,
@@ -93,7 +97,9 @@ export function mapCode(d: Dungeon): string {
 export function readMapCode(code: string): Dungeon {
   const broken = () => new Error('This map code is broken: it may have been cut short when it was copied.');
   if (!isMapCode(code) || code.length > MAP_CODE_MAX) throw broken();
-  if (code[1] !== VERSION) throw new Error('This map code is from another version of the game.');
+  const kinds = VERSION_KINDS[code[1]];
+  if (!kinds) throw new Error('This map code is from another version of the game.');
+  const { repeat } = layout(kinds);
   const n = DUNGEON_SIZE;
   const inner = (n - 2) * (n - 2);
   const d = emptyDungeon(code);
@@ -105,9 +111,9 @@ export function readMapCode(code: string): Dungeon {
     k++;
     d.wallHp[i] = 0;
     if (c >= C_MONSTER) {
-      const kind = MONSTER_KINDS[(c - C_MONSTER) % MONSTER_KINDS.length];
+      const kind = kinds[(c - C_MONSTER) % kinds.length];
       d.tiles[i] = FLOOR;
-      d.monsters.push({ kind, pos: i, hp: MONSTER_STATS[kind].hp, rich: c - C_MONSTER >= MONSTER_KINDS.length });
+      d.monsters.push({ kind, pos: i, hp: MONSTER_STATS[kind].hp, rich: c - C_MONSTER >= kinds.length });
       return;
     }
     d.tiles[i] = CELL_TILE[c];
@@ -118,9 +124,9 @@ export function readMapCode(code: string): Dungeon {
   for (let p = 2; p < code.length; p++) {
     const v = ALPHABET.indexOf(code[p]);
     if (v < 0) throw broken();
-    if (v >= REPEAT) {
+    if (v >= repeat) {
       if (!last) throw broken();
-      for (let r = 0; r <= v - REPEAT; r++) put(last);
+      for (let r = 0; r <= v - repeat; r++) put(last);
       continue;
     }
     let amount = 0;

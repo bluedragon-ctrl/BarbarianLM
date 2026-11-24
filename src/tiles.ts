@@ -52,7 +52,7 @@ export function shownKind(tile: Tile, wallHp: number, gold: number): number {
   }
 }
 
-export const MONSTER_KINDS = ['rat', 'goblin', 'slime', 'troll'] as const;
+export const MONSTER_KINDS = ['rat', 'goblin', 'slime', 'troll', 'dragon'] as const;
 export type MonsterKind = typeof MONSTER_KINDS[number];
 
 export interface MonsterStats { attack: number; hp: number; gold: number; mobile: boolean }
@@ -61,6 +61,11 @@ export const MONSTER_STATS: Record<MonsterKind, MonsterStats> = {
   goblin: { attack: 2, hp: 4, gold: 3, mobile: true },
   slime: { attack: 3, hp: 6, gold: 5, mobile: false },
   troll: { attack: 4, hp: 12, gold: 12, mobile: false },
+  /**
+   * Beaten only fully buffed (attack 4, max HP 22) and healthy: 4 blows, 20 damage. At attack 3 it is 6 blows and
+   * 30 damage, and a potion drunk in the fight heals 6 but costs a hit of 5.
+   */
+  dragon: { attack: 5, hp: 16, gold: 25, mobile: false },
 };
 /** A rich monster carries this many times the usual gold. */
 export const RICH_TIMES = 3;

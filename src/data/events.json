@@ -191,20 +191,23 @@
       "rat": ["Ow! Tough little rat.", "That rat bit me!", "Ouch! Stupid rat."],
       "goblin": ["Ow! Sneaky goblin!", "Hey! That goblin hits hard.", "Ouch! Goblin!"],
       "slime": ["Eww! Slime hurts!", "Ow! Sticky and mean.", "Yuck! That slime stings."],
-      "troll": ["OOF! Troll!", "Ow ow ow. Big troll.", "That troll hits like a tree."]
+      "troll": ["OOF! Troll!", "Ow ow ow. Big troll.", "That troll hits like a tree."],
+      "dragon": ["HOT! Hot hot hot!", "Ow! Dragon claws!", "That dragon means it!"]
     },
     "trap": ["Ow! Spikes!", "Who put spikes here?", "Ouch! My feet!"],
     "beaten": {
       "rat": ["Ha! Rat down. Coins!", "Bye, rat. Hello, coins."],
       "goblin": ["Ha! Goblin down. Coins!", "That's one less goblin."],
       "slime": ["Slime turned to coins! Nice.", "No more slime. Coins!"],
-      "troll": ["I beat a TROLL!", "Troll down! Pile of coins!"]
+      "troll": ["I beat a TROLL!", "Troll down! Pile of coins!"],
+      "dragon": ["I BEAT A DRAGON!", "Dragon down! The hoard is mine!"]
     },
     "monster": {
       "rat": ["Rat {dir}. Easy.", "A rat {dir}. Squeak away.", "Rat {dir}! Smash!"],
       "goblin": ["Goblin {dir}! Smash!", "A goblin {dir}. Sneaky.", "Goblin {dir}. Bring it."],
       "slime": ["Slime {dir}. Gross.", "A slime {dir}. Don't touch it.", "Slime {dir}! Sticky."],
-      "troll": ["Troll {dir}. Too big. Not today.", "A TROLL {dir}!", "Troll {dir}. Careful…"]
+      "troll": ["Troll {dir}. Too big. Not today.", "A TROLL {dir}!", "Troll {dir}. Careful…"],
+      "dragon": ["A DRAGON {dir}!", "Dragon {dir}. Only the strongest…", "Dragon {dir}. Its hoard!"]
     },
     "gold": ["Gold {dir}! Mine!", "Shiny {dir}!", "Coins {dir}!"],
     "heap": ["Gold heap {dir}! Mine!", "A big heap {dir}! All mine!", "So much gold {dir}!"],

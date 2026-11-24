@@ -102,7 +102,7 @@ describe('dungeon generator', () => {
     }
   });
 
-  it('starts monsters at full HP on bare floor, apart, away from the stairs, with one troll guarding a heap', () => {
+  it('starts monsters at full HP on bare floor, apart, away from the stairs, with one troll or dragon guarding a heap', () => {
     for (const d of DUNGEONS) {
       const depth = depths(d);
       expect(new Set(d.monsters.map((m) => m.pos)).size).toBe(d.monsters.length);
@@ -111,10 +111,18 @@ describe('dungeon generator', () => {
         expect(m.hp).toBe(MONSTER_STATS[m.kind].hp);
         expect(depth[m.pos]).toBeGreaterThanOrEqual(GEN.safeDistance);
       }
-      const trolls = d.monsters.filter((m) => m.kind === 'troll');
-      expect(trolls.length).toBe(1);
-      expect(sideNeighbours(d.size, trolls[0].pos).some((n) => d.tiles[n] === GOLD && d.gold[n] === GEN.heap)).toBe(true);
+      const guards = d.monsters.filter((m) => m.kind === 'troll' || m.kind === 'dragon');
+      expect(guards.length).toBe(1);
+      const heap = guards[0].kind === 'dragon' ? GEN.hoard : GEN.heap;
+      expect(sideNeighbours(d.size, guards[0].pos).some((n) => d.tiles[n] === GOLD && d.gold[n] === heap)).toBe(true);
     }
+  });
+
+  it('puts a dragon, never rich, in about 1 dungeon in 3', () => {
+    const dragons = DUNGEONS.flatMap((d) => d.monsters.filter((m) => m.kind === 'dragon'));
+    expect(dragons.every((m) => !m.rich)).toBe(true);
+    expect(dragons.length / DUNGEONS.length).toBeGreaterThan(0.25);
+    expect(dragons.length / DUNGEONS.length).toBeLessThan(0.42);
   });
 
   it('makes about 1 monster in 4 rich', () => {
@@ -146,4 +154,4 @@ describe('dungeon generator', () => {
   });
 });
 
-const FINGERPRINT = 232885594;
+const FINGERPRINT = 1387586156;

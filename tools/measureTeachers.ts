@@ -14,18 +14,24 @@ interface Row {
   label: string; raids: number; gold: number; left: number; leftEmpty: number; knockedOut: number; lockedIn: number;
   turns: number; potions: number; torches: number; dug: number; blows: number; waits: number; wasted: number;
   hpLost: number; fights: number; trollSeenKo: number; trollSeen: number; strength: number; vigour: number; trolls: number;
+  dragonSeen: number; dragonSeenKo: number; dragons: number; dragonGold: number;
 }
 
 function measure(label: string, name: TeacherName, codes: string[], o: { ownPickaxe?: boolean; rules?: TeacherRules } = {}): Row {
   const row: Row = {
     label, raids: 0, gold: 0, left: 0, leftEmpty: 0, knockedOut: 0, lockedIn: 0, turns: 0, potions: 0, torches: 0,
     dug: 0, blows: 0, waits: 0, wasted: 0, hpLost: 0, fights: 0, trollSeenKo: 0, trollSeen: 0, strength: 0, vigour: 0, trolls: 0,
+    dragonSeen: 0, dragonSeenKo: 0, dragons: 0, dragonGold: 0,
   };
   for (const code of codes) {
     let sawTroll = false;
+    let sawDragon = false;
     const { state, turns } = teacherRaid(generateDungeon(code), name, 0, {
       ...o,
-      onTurn: (_s, t) => { if (t.knowledge.monsters.some((m) => m.kind === 'troll')) sawTroll = true; },
+      onTurn: (_s, t) => {
+        if (t.knowledge.monsters.some((m) => m.kind === 'troll')) sawTroll = true;
+        if (t.knowledge.monsters.some((m) => m.kind === 'dragon')) sawDragon = true;
+      },
     });
     row.raids++;
     if (state.ended === 'left') {
@@ -44,9 +50,15 @@ function measure(label: string, name: TeacherName, codes: string[], o: { ownPick
       if (r.did === 'nothing') row.wasted++;
       if (r.beaten) row.fights++;
       if (r.beaten?.monster.kind === 'troll') row.trolls++;
+      if (r.beaten?.monster.kind === 'dragon') row.dragons++;
       if (r.picked === STRENGTH) row.strength++;
       if (r.picked === VIGOUR) row.vigour++;
       row.hpLost += r.trapDamage + r.hits.reduce((s, h) => s + h.damage, 0);
+    }
+    if (sawDragon) {
+      row.dragonSeen++;
+      if (state.ended === 'knockedOut') row.dragonSeenKo++;
+      if (state.ended === 'left' && turns.some((t) => t.result.beaten?.monster.kind === 'dragon')) row.dragonGold += state.gold;
     }
     if (sawTroll) {
       row.trollSeen++;
@@ -90,13 +102,14 @@ export function main(args: string[]) {
 function print(count: number, rows: Row[]) {
   console.log(`${count} dungeon codes, raid 0 each; start HP ${RULES.startHp}, potions ${RULES.startPotions}, ` +
     `${RULES.timeLimit} turns, chases of ${CHASE.steps} steps then ${CHASE.rest} turns' rest\n`);
-  console.log('teacher            gold out   left  left/0   k.o. locked  turns  potions torches  blows  dug  waits wasted hp lost  beaten  k.o. if troll seen  strength vigour trolls');
+  console.log('teacher            gold out   left  left/0   k.o. locked  turns  potions torches  blows  dug  waits wasted hp lost  beaten  k.o. if troll seen  strength vigour trolls  k.o. if dragon seen  dragons');
   for (const r of rows) {
     console.log(`${r.label.padEnd(17)} ${avg(r.gold, r.raids)}   ${pct(r.left, r.raids)}  ${pct(r.leftEmpty, r.raids)}  ` +
       `${pct(r.knockedOut, r.raids)}  ${pct(r.lockedIn, r.raids)} ${avg(r.turns, r.raids, 0)}   ${avg(r.potions, r.raids, 2)}  ` +
       `${avg(r.torches, r.raids, 2)} ${avg(r.blows, r.raids)} ${avg(r.dug, r.raids)} ${avg(r.waits, r.raids)} ` +
       `${avg(r.wasted, r.raids)}  ${avg(r.hpLost, r.raids)}  ${avg(r.fights, r.raids)}   ` +
       `${pct(r.trollSeenKo, Math.max(1, r.trollSeen))} of ${pct(r.trollSeen, r.raids)}    ` +
-      `${avg(r.strength, r.raids, 2)} ${avg(r.vigour, r.raids, 2)} ${avg(r.trolls, r.raids, 2)}`);
+      `${avg(r.strength, r.raids, 2)} ${avg(r.vigour, r.raids, 2)} ${avg(r.trolls, r.raids, 2)}  ` +
+      `${pct(r.dragonSeenKo, Math.max(1, r.dragonSeen))} of ${pct(r.dragonSeen, r.raids)}    ${avg(r.dragons, r.raids, 3)}`);
   }
 }

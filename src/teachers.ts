@@ -120,6 +120,19 @@ export function fightDamage(m: Pick<KnownMonster, 'kind' | 'hp'>, attack: number
   return MONSTER_STATS[m.kind].attack * (blows(m.hp, attack) - 1 + (approach ? 1 : 0));
 }
 
+/**
+ * The HP he can spend on one fight: his HP, and, when he counts his potions, what they add. He drinks up to full
+ * before he steps up to it (only if he has to step up to it), and each potion left heals in the fight only what
+ * the monster's next hit does not take back.
+ */
+export function fightReserve(s: Pick<RaidState, 'hp' | 'maxHp' | 'potions'>, m: Pick<KnownMonster, 'kind'>, approach: boolean, potions: boolean): number {
+  if (!potions) return s.hp;
+  const heal = RULES.potionHeal;
+  const before = approach ? Math.min(s.potions, Math.ceil(Math.max(0, s.maxHp - s.hp) / heal)) : 0;
+  const hp = Math.min(s.maxHp, s.hp + before * heal);
+  return hp + (s.potions - before) * Math.max(0, heal - MONSTER_STATS[m.kind].attack);
+}
+
 /** Turns and damage to enter tile `i`, or null where the planner may not go. */
 export function enterCost(k: Knowledge, i: number, o: PlanOptions): { turns: number; damage: number } | null {
   if (!k.seen[i]) return null;
@@ -251,7 +264,7 @@ export const TEACHERS = ['warrior', 'healer', 'thief', 'dwarf', 'pickaxe', 'gobl
 export type TeacherName = typeof TEACHERS[number];
 export const TEACHER_LABELS: Record<TeacherName, string> = {
   warrior: 'Old warrior', healer: 'Healer', thief: 'Thief', dwarf: 'Dwarf', pickaxe: 'Dwarf with his own pickaxe',
-  goblin: 'Goblin in disguise', champion: 'Champion',
+  goblin: 'Goblin in disguise', champion: 'Dragonslayer',
 };
 
 /** A teacher's rules *(tune)*. */
@@ -283,6 +296,8 @@ export interface TeacherRules {
   itemBonus: number;
   /** ... and a strength or vigour. */
   buffBonus: number;
+  /** ... and a dragon he could beat now (the champion, the dragonslayer). */
+  dragonBonus: number;
   /** `nextHit`: drinks only when the hits coming this turn would knock him out. `belowHalf`: below half HP. */
   drink: 'nextHit' | 'belowHalf';
   /** Lights a torch when it would show at least this many tiles he has not seen. */
@@ -301,12 +316,12 @@ export interface TeacherRules {
 
 const HEALER: TeacherRules = {
   hpWeight: 2, dig: 'never', fightSpare: 1 / 3, fightPotions: 'never', avoidMonsters: false, huntMonsters: 'never',
-  itemBonus: 0, buffBonus: 0, drink: 'belowHalf', torchReveal: 5, torchKeep: 0, timeMargin: 20, homeHp: 1 / 2,
+  itemBonus: 0, buffBonus: 0, dragonBonus: 0, drink: 'belowHalf', torchReveal: 5, torchKeep: 0, timeMargin: 20, homeHp: 1 / 2,
   waits: true, trollBait: false,
 };
 const WARRIOR: TeacherRules = {
   hpWeight: 1, dig: 'never', fightSpare: null, fightPotions: 'always', avoidMonsters: false, huntMonsters: 'always',
-  itemBonus: 0, buffBonus: 10, drink: 'nextHit', torchReveal: 5, torchKeep: 0, timeMargin: 5, homeHp: 1 / 4,
+  itemBonus: 0, buffBonus: 10, dragonBonus: 0, drink: 'nextHit', torchReveal: 5, torchKeep: 0, timeMargin: 5, homeHp: 1 / 4,
   waits: false, trollBait: false,
 };
 export const TEACHER_RULES: Record<TeacherName, TeacherRules> = {
@@ -317,7 +332,7 @@ export const TEACHER_RULES: Record<TeacherName, TeacherRules> = {
   pickaxe: { ...HEALER, dig: 'pickaxe' },
   goblin: { ...WARRIOR, trollBait: true },
   champion: {
-    ...HEALER, fightSpare: 0.1, fightPotions: 'buffed', huntMonsters: 'buffed', buffBonus: 20, timeMargin: 10,
+    ...HEALER, fightSpare: 0.1, fightPotions: 'buffed', huntMonsters: 'buffed', buffBonus: 20, dragonBonus: 40, timeMargin: 10,
   },
 };
 
@@ -388,13 +403,16 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
     const buffed = s.attack > RULES.startAttack && s.maxHp > RULES.startHp;
     const when = (w: 'never' | 'always' | 'buffed') => w === 'always' || (w === 'buffed' && buffed);
     const reserve = s.hp + (when(r.fightPotions) ? s.potions * RULES.potionHeal : 0);
-    const afford = (damage: number): boolean => (r.fightSpare === null
-      ? damage < reserve
-      : damage === 0 || reserve - damage >= r.fightSpare * s.maxHp);
-    // A fight he can afford, and still get home past the traps after it.
+    const affordWith = (damage: number, hp: number): boolean => (r.fightSpare === null
+      ? damage < hp
+      : damage === 0 || hp - damage >= r.fightSpare * s.maxHp);
+    const afford = (damage: number): boolean => affordWith(damage, reserve);
+    // A fight he can afford, and still get home past the traps after it. In one fight his potions are worth less
+    // than on a walk: he can drink up to full HP before he steps up to it, but one drunk in the fight costs a turn
+    // in which the monster hits him again.
     const mayFight = (m: KnownMonster, approach = true, at = s.pos): boolean => {
       const damage = fightDamage(m, s.attack, approach);
-      return afford(damage) && survives(damage, at);
+      return affordWith(damage, fightReserve(s, m, approach, when(r.fightPotions))) && survives(damage, at);
     };
     // HP weighs more the less of it he has.
     const opts: PlanOptions = {
@@ -406,9 +424,9 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
       return f < 0 ? null : dirTo(size, s.pos, f);
     };
 
-    // The goblin in disguise: a troll in sight, and he walks into it.
+    // The goblin in disguise: a troll or dragon in sight, and he walks into it.
     if (r.trollBait) {
-      const troll = k.monsters.find((m) => m.kind === 'troll' && m.seenAt === s.turn);
+      const troll = k.monsters.find((m) => (m.kind === 'troll' || m.kind === 'dragon') && m.seenAt === s.turn);
       if (troll) {
         const a = stepTo(plan(k, s.pos, { ...opts, hpWeight: 0, mayFight: () => true }), troll.pos);
         if (a !== null) return [a, 'troll'];
@@ -446,7 +464,11 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
         return d <= 2;
       };
       const nextHit = Math.max(incoming, ...k.monsters.filter(near).map((m) => MONSTER_STATS[m.kind].attack));
-      const low = r.drink === 'nextHit' ? nextHit >= s.hp : s.hp * 2 < s.maxHp;
+      // Below half HP in a fight he can finish without falling, he finishes it first: a potion drunk in a fight
+      // costs a turn of hits, which against a dragon is nearly all it heals.
+      const finishing = adjacent.length > 0 && adjacent.every((m) => mayFight(m, false)) &&
+        adjacent.reduce((sum, m) => sum + fightDamage(m, s.attack, false), 0) < s.hp;
+      const low = r.drink === 'nextHit' ? nextHit >= s.hp : s.hp * 2 < s.maxHp && !finishing;
       if (low) return [DRINK, 'drink'];
     }
 
@@ -510,10 +532,18 @@ export function newTeacher(name: TeacherName, s: RaidState, rules: TeacherRules 
         consider(i, itemValue(s, k.tiles[i], k.gold[i]), 1, bonusOf(k.tiles[i]));
       }
       if (when(r.huntMonsters)) {
-        for (const m of k.monsters) consider(m.pos, monsterGold(m as Monster), 1);
+        for (const m of k.monsters) consider(m.pos, monsterGold(m as Monster), 1, m.kind === 'dragon' ? r.dragonBonus : 0);
       }
       if (best >= 0) {
         const a = stepTo(p, best);
+        // About to step up to a monster he means to fight, one that would knock him out from the HP he has: drink
+        // first, while it cannot hit him for it.
+        if (a !== null && s.potions > 0 && s.hp < s.maxHp) {
+          const to = firstStep(p, best);
+          const big = k.monsters.some((m) => !adjacent.includes(m) && nextTo(to).includes(m.pos) &&
+            !MONSTER_STATS[m.kind].mobile && fightDamage(m, s.attack, true) >= s.hp && mayFight(m));
+          if (big) return [DRINK, 'drink'];
+        }
         if (a !== null) return [a, 'target'];
       }
       // Nothing known: explore the nearest tile next to unseen ones (or, for a digger, a cracked wall).

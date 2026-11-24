@@ -65,7 +65,7 @@ export function createModel(nIn: number, seed: string | number, nH = HIDDEN): Mo
   };
 }
 
-/** nIn·nH + nH + 9·nH + 9: 48,681 / 95,241 / 165,081 for the short / medium / long memory. */
+/** nIn·nH + nH + 9·nH + 9: 51,129 / 100,089 / 173,529 for the short / medium / long memory. */
 export const parameterCount = (m: Pick<Model, 'nIn' | 'nH'>): number => m.nIn * m.nH + m.nH + N_OUT * m.nH + N_OUT;
 
 // ── Forward ─────────────────────────────────────────────────────────────────
