@@ -9,7 +9,8 @@
  * a full vector for tests. No DOM, no randomness.
  */
 import { VIEW_KINDS, VIEW_SIZE, type ViewCell } from './sight';
-import { ACTIONS, type Action, type RaidState } from './world';
+import { MONSTER_KINDS } from './tiles';
+import { ACTIONS, ACTION_NAMES, type Action, type RaidState } from './world';
 
 /**
  * Bump when the input or output layout changes (tile kinds, monster flags, pinned tokens, buckets, actions, memory
@@ -208,4 +209,48 @@ export function pinnedWords(s: RaidState): string[] {
   const words = pinnedIndices(s).map((i) => PINNED_LABELS[i]);
   if (words.length > PINNED_GROUPS.length) words.splice(-2, 2, `${words.at(-2)}, ${words.at(-1)}`);
   return words;
+}
+
+/** Each view kind in words, in kind order: the 12 tiles, dark, then the 4 monsters. */
+export const VIEW_KIND_WORDS: readonly string[] = [
+  'floor', 'stone wall', 'cracked wall', 'bedrock', 'stairs', 'spike trap', 'small gold', 'gold heap', 'potion', 'torch',
+  'strength', 'vigour', 'dark', ...MONSTER_KINDS,
+];
+
+/** Where view cell `k` is from him: "under him", "1 east", "2 north, 1 west". */
+export function cellWhere(k: number): string {
+  const half = VIEW_SIZE >> 1;
+  const dx = (k % VIEW_SIZE) - half;
+  const dy = Math.floor(k / VIEW_SIZE) - half;
+  if (!dx && !dy) return 'under him';
+  const parts: string[] = [];
+  if (dy) parts.push(`${Math.abs(dy)} ${dy < 0 ? 'north' : 'south'}`);
+  if (dx) parts.push(`${Math.abs(dx)} ${dx < 0 ? 'west' : 'east'}`);
+  return parts.join(', ');
+}
+
+/** One number of a view in words: "goblin 1 east", "wounded 2 north", "dark 1 south, 1 west". */
+function viewInputWords(v: number): string {
+  const cell = Math.floor(v / CELL_SIZE);
+  const f = v % CELL_SIZE;
+  const what = f === WOUNDED_AT ? 'wounded monster' : f === RICH_AT ? 'rich monster' : VIEW_KIND_WORDS[f];
+  return `${what} ${cellWhere(cell)}`;
+}
+
+/**
+ * Input `i` of a model with a memory of `pairs`, in words, for the Inside the model tab: "HP 7–10", "Now: goblin
+ * 1 east", "2 turns ago: he took right", "1 turn ago: memory slot filled".
+ */
+export function inputWords(i: number, pairs: number): string {
+  if (i < 0 || i >= inputSize(pairs)) throw new Error(`Input ${i} is outside 0–${inputSize(pairs) - 1}`);
+  if (i < PINNED_SIZE) return i >= COMPASS_DISTANCE_AT ? `Stairs ${PINNED_LABELS[i]}` : PINNED_LABELS[i];
+  const now = viewNowAt(pairs);
+  if (i >= now) return `Now: ${viewInputWords(i - now)}`;
+  const k = Math.floor((i - PINNED_SIZE) / PAIR_SIZE);
+  const j = i - pairAt(k);
+  const ago = pairs - k;
+  const when = `${ago} turn${ago === 1 ? '' : 's'} ago`;
+  if (j === 0) return `${when}: memory slot filled`;
+  if (j > VIEW_INPUTS) return `${when}: he took ${ACTION_NAMES[j - 1 - VIEW_INPUTS]}`;
+  return `${when}: ${viewInputWords(j - 1)}`;
 }

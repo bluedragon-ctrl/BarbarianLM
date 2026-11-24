@@ -2,7 +2,7 @@
 
 This file is the source of truth for the game's design. Update it in the same pull request as any change to how the game behaves.
 
-**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`), and the first UI steps: the shell, tabs, board and settings (`src/ui/`, `src/marks.ts`), the Lessons and Practice tabs with their charts (`src/ui/training.ts`, `src/ui/trainer.ts`, `src/ui/charts.ts`), and the Raid alone tab (`src/ui/raidAlone.ts`, `src/ui/strip.ts`, `src/ui/raidPlay.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
+**Status:** draft for phase one. Built so far: the dungeon generator, the world rules (`src/world.ts`, `src/sight.ts`, `src/monsters.ts`), the tokens (`src/tokens.ts`), the model (`src/model.ts`), the teachers (`src/teachers.ts`), training and evaluation (`src/raid.ts`, `src/train.ts`, `src/raids.ts`, `src/worker.ts`), the events, thoughts and saga (`src/events.ts`, `src/data/events.json`, `src/thoughts.ts`, `src/saga.ts`), and the first UI steps: the shell, tabs, board and settings (`src/ui/`, `src/marks.ts`), the Lessons and Practice tabs with their charts (`src/ui/training.ts`, `src/ui/trainer.ts`, `src/ui/charts.ts`), the Raid alone tab (`src/ui/raidAlone.ts`, `src/ui/strip.ts`, `src/ui/raidPlay.ts`), the Many raids and Inside the model tabs (`src/ui/many.ts`, `src/ui/inside.ts`) and the AI idea cards (`src/explain.ts`, `src/ui/aiCard.ts`). Numbers marked *(tune)* are first guesses, to be set by measuring across many dungeon codes.
 
 ## Purpose and audience
 
@@ -77,6 +77,11 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | The memory strip starting with empty slots | A conversation's first tokens: the context window is not full yet |
 | His bars before training: every action about as likely, and he may well leave on the first turn | An untrained model's output: guesses spread over the whole vocabulary |
 | The judge's score rising while his gold out falls | Reward hacking seen in the numbers: the score is not the goal |
+| Many raids: the same model raids 100 or 1,000 times and the endings are counted | Judging a model by many sampled answers: one answer is a gamble and tells little |
+| His teacher plays the same raids, next to his counts | Measuring a model against a reference on the same test set |
+| Many raids in new dungeons after lessons in one | Testing on held-out data: did it learn the skill, or memorise the one text? |
+| The number of parameters on Inside the model (95,241 at the medium memory) | Model size: big chatbots have billions |
+| "What pushed him": each input left out in turn, and his chance worked out again | Attribution, a first step of interpretability: which parts of the input an output depends on |
 
 ## Dungeon and rules
 
@@ -436,7 +441,7 @@ The champion's lessons alone make a student who fights more: 5.5 beaten before a
 - **Raid alone:** step by step, with the action bars, memory strip, his thoughts and the saga at the end (the tab is described under [Visuals](#visuals)).
 - **Raid alone** (`src/raid.ts`): each turn he reads his input, the model gives the probabilities at the boldness, "Block impossible actions" masks them when on, one number from `code|n|act` picks the action (one a turn, block or not, so the box never shifts the stream), and `step` answers with `code|n|monsters`. Each turn's record keeps the input, the unmasked and the sampled probabilities, what was allowed, the view he picked from, the action and what it did, the events that followed it, and his stats once the turn and its events were over (for thoughts and the UI). With events on, the record also keeps the spots placed and the events met.
 - **Many raids** (`src/raids.ts`): many raids alone, raids 0, 1, 2… of one dungeon or raid 0 of many codes. Average gold out; share left with gold, left with no gold (counted apart, or a player that leaves on the first turn looks safe), knocked out, locked in; average turns, potions drunk, torches lit, walls dug, wasted actions, waits, gold picked up and monsters beaten (what the judges see); with the block option on or off; with events on, events met, the ones whose effect changed his stats, and their net change to his gold ("events took 14 gold over 200 raids").
-- **In the worker** (`src/worker.ts` runs `runJob` from `src/train.ts`, as in Karkulka): a request is `lessons` (model, stats, count, seed, teacher, optional dungeon and Adam state, which comes back so lessons can go on where they stopped), `practice` (judge instead of teacher), `raids` (a plan, boldness, block, events) or `teachers` (step 8.2: teachers and an optional dungeon). It answers `progress` every 25 raids (after each teacher for `teachers`), then `done` (model, stats, Adam), `raidsDone` (counts) or `teachersDone` (each teacher's numbers), or `error`. `src/workerClient.ts` is the page's side.
+- **In the worker** (`src/worker.ts` runs `runJob` from `src/train.ts`, as in Karkulka): a request is `lessons` (model, stats, count, seed, teacher, optional dungeon and Adam state, which comes back so lessons can go on where they stopped), `practice` (judge instead of teacher), `raids` (a plan, boldness, block, events with their new-spots option, and since step 8.4 an optional teacher who plays the same dungeons and raid numbers, raid by raid, without events as in its lessons; its counts come back next to his) or `teachers` (step 8.2: teachers and an optional dungeon). It answers `progress` every 25 raids (after each teacher for `teachers`), then `done` (model, stats, Adam), `raidsDone` (counts) or `teachersDone` (each teacher's numbers), or `error`. `src/workerClient.ts` is the page's side.
 - **Test points** (step 8.2): each one keeps where its test raids were (the dungeon code, or `new` for the 20 fixed codes) and which kind of job ran it (lessons or practice); practice scores keep their judge. A lessons or practice job first tests him where it trains, unless there already is a test at that point there, so each chart starts from where he was before the job.
 - **The teachers' numbers** (`teacherTests`, step 8.2): each teacher plays the same test raids as his (raids 0–19 of the dungeon, or raid 0 of the 20 fixed codes), as in its lessons (the pickaxe dwarf with his own pickaxe). Teachers have no randomness, so these are fixed per teacher and place; the page measures all seven in the worker the first time a place is shown (about half a second a teacher) and keeps them.
 
@@ -501,6 +506,25 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 - No pulsing hints except the first time a card is relevant.
 - The Inside the model tab stays for those who want the details.
 
+**Built in step 8.4** (chosen with the owner): twelve cards in `src/explain.ts`, one per idea above (a title and 2–3 sentences, the last about a real chatbot). The badge is a small "AI" button **after a panel heading or control**, and the card opens as a **popover** next to it (`src/ui/aiCard.ts`, modelled on Karkulka's `hint.ts`): Esc or a click elsewhere closes it, and it follows its badge when the panel is redrawn. Where they sit:
+
+| Card | Badge | First relevant (its badges pulse until it is opened) |
+| --- | --- | --- |
+| Tokens and the context window | "His memory" on the strip; "What goes in" on Inside the model | Opening Raid alone |
+| Chances and boldness | "His next action" on Raid alone; the Many raids heading | His first turn on a raid alone |
+| Pinned stats | "pinned" on the strip | The first gold picked up |
+| Numbers in buckets | Pinned stats on Inside the model | Opening Inside the model |
+| The world answers (agent loop) | The Raid alone heading | The first hit or trap |
+| Leave: knowing when to stop | The end line of a raid alone | The first raid alone that leaves with gold |
+| Actions that use things (tool calls) | "Walk him yourself" | The first potion drunk or item picked up |
+| Torchlight (retrieval) | Torches, above the board | The first torch lit |
+| Lessons from a teacher | "Who teaches him?" | The first lessons done |
+| The dwarf's pickaxe (distillation) | The pickaxe dwarf in the teacher picker | Picking him |
+| Practice and the judge (reward hacking) | "Who judges?" | The first practice done |
+| The skald's saga (hallucination) | The saga's heading | The first saga (unless Leave's card comes first) |
+
+Only one card pulses at a time (the newest), each only once a session; the pulse is a still ring with reduced motion. Not chosen: cards unfolding inside the panel (pushes it down), and a list of all cards on Inside the model.
+
 ## Showcase extras
 
 - **Speed control** and **autoplay** on raids alone, with damage numbers and coin pop-ups.
@@ -552,6 +576,19 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 - **The saga** replaces the action bars in the panel when the raid ends, under a line saying how it ended: up to 10 sentences, true ones with a small rune stone, made-up ones with a grey dashed cloud and in italics, the count line ("5 true, 4 made up", plus "telling 4" after a retelling), and **Sing it again** (the next telling's stream, `code|n|saga|k`, at the boldness set now).
 - Considered and not chosen: bars as columns under the board, or move arrows drawn round him on the board; actions only in the memory strip (hides that views are tokens too); a fixed raid 0 or a random number each raid; one speed or a slider; the saga as an overlay on the board or under the strip.
 
+**Many raids** (step 8.4, chosen with the owner). His current model raids **100 or 1,000** times in the worker (the `raids` job; about 4 ms a raid at the medium memory, so 1,000 take about 4 s), **in the dungeon on screen** (raids 0, 1, 2… of it, the same streams as raid alone and the test raids) or **a new dungeon every raid** (raid 0 of the codes from the seed `many`, the same codes every run so runs compare). It uses the Raid alone boldness and block option and the event settings, said in a line above the button. Stop throws the run away.
+
+- **His main teacher plays the same raids** (the teacher he had most lessons from, else the one picked on Lessons), raid by raid in the same job, without events, as in its lessons. Teachers have no randomness, so their numbers are fixed per teacher, place and count: measured once (about 15 ms a raid, so 1,000 raids take about 11 s the first time) and kept for the session.
+- **The results:** a line in words ("He carried out 21 gold a raid and left with gold in 46% of them. Healer on the same raids: 48 gold, 100%."), then **how the raids ended** as four bars (left with gold, left with none, locked in, knocked out, with the charts' colours and textures) with the teacher's share as a dashed mark on each track and in brackets, then **a raid on average** as a small table, him and the teacher side by side: gold carried out, left with gold, turns, gold picked up, monsters beaten, potions, torches, walls dug through, waits, wasted actions. With events on, a line counts the events he met, the ones that changed his stats and the gold they took or gave. Gold out always sits next to the share that left with gold. The numbers fill in every 25 raids while the run goes. A note says when he has trained since the run.
+- Not chosen: following the "Lessons and practice" setting for where (no way to test new dungeons after training in one), both places side by side in every run (twice the time), a 3,000 choice, the teachers' 20 test raids as the comparison (not the same raids), all seven teachers (about 100 s for 1,000 raids), words only.
+
+**Inside the model** (step 8.4, chosen with the owner: very light). The board and the memory strip show the raid on the Raid alone tab.
+
+- **What goes in:** a small table: pinned stats 44, memory (pairs × 485), the view now 475, inputs in all (1,004 / 1,974 / 3,429), each 0 or 1, and how many are 1 now.
+- **The network:** inputs → 48 hidden units → 9 actions as three boxes, one plain sentence on how they connect, and the parameter count worked out ("1,974 × 48 + 48 + 48 × 9 + 9 = 95,241 numbers he learns"), with what has set them so far.
+- **Right now:** the raid on screen (raid number, turn, boldness): the 9 chances as the Raid alone bars, then **what pushed him toward** the likeliest action: the 5 inputs whose removal lowers its chance most, and the 2 whose removal raises it most ("held him back"), each in words (`inputWords` in `src/tokens.ts`: "Now: goblin 1 east", "2 turns ago: he took right", "Gold 0") with the chance with and without it ("84% → 73% without it"). Each input is left out in turn and the network run again (`withoutEach` in `src/model.ts`; exact, not an estimate). This is measured at **boldness 1**, his model's own chances: at the default 0.5 a trained model's top action sits at 100% and no single input moves it visibly. Ranked by the drop in log chance, shown with a decimal near 0% and 100%.
+- Not chosen: weight heatmaps or other heavy pictures, a count of inputs that are on as its own section, a line of training history (it is on Lessons).
+
 **Settings and defaults** (step 8.1; kept for the session until save and links come in step 8.5):
 
 | Setting | Default |
@@ -590,7 +627,7 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
 - The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless. (The step 5 warrior counts a rich monster's gold like any other.)
-- **Risk against reward** (settled for now). Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless, but ranking teachers by it alone hides the risk each takes. Wherever teachers or students are compared (the teacher picker, the many-raids counts, step 8's UI), show the share that left with gold next to gold out, e.g. "warrior: 62 gold, knocked out 1 raid in 9"; "thief: 48 gold, never knocked out". The thief is now the safest teacher. A risk-averse judge (gold out with a penalty for a knock-out) is the bigger step, left for later.
+- **Risk against reward** (settled for now). Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless, but ranking teachers by it alone hides the risk each takes. Wherever teachers or students are compared (the teacher picker, the many-raids counts, step 8's UI; built in 8.2 and 8.4), show the share that left with gold next to gold out, e.g. "warrior: 62 gold, knocked out 1 raid in 9"; "thief: 48 gold, never knocked out". The thief is now the safest teacher. A risk-averse judge (gold out with a penalty for a knock-out) is the bigger step, left for later.
 - Teachers still find only about 1.5 of the 2 strength and 2 vigour at 200 turns; the rest are mostly never seen. If the champion should reliably gather all four, the buffs could sit nearer, or the generator could put the deeper ones on the main way rather than in side rooms.
 - Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
@@ -602,4 +639,5 @@ Everything above: one level, 4 monsters with wounded and rich flags, 13 tile kin
 - **A closing line for the saga?** Karkulka ends its story with who shaped her ("The careful healer had taught him…"). Not built here; it would need the teacher or judge passed to the saga.
 - After lessons, the long memory does worse than the medium one: 1,000 lessons do not fill 165,081 parameters. The Lessons tab says so with the long memory (step 8.2); a 3,000-lesson choice (about 100 s) was offered and not chosen, so for now the button is pressed again.
 - **An untrained raid is short** (step 8.3): he starts on the stairs, where Leave works, so with nearly even bars he often leaves at once: over 20 untrained models × 150 raids (boldness 0.5, medium memory) 20% of raids end by leaving within 5 turns; the rest wander 92 turns on average. That is the honest picture of an untrained model; if it reads as broken, the Raid alone tab could start untrained raids a step off the stairs, or say so in its note.
+- **Many raids with events on** (step 8.4): his raids have events and the teacher's on the same raids do not (teachers never had events), so with events on the comparison is not quite like for like; the line above the button says so. Teacher raids with events would need `TeacherRaid` to take the event tracker.
 - **Test points are noisy** (step 8.2): 20 test raids a point make the gold-out line jump by 10 or more between neighbours in one dungeon. More test raids cost time in every job (about 60 ms a point at the medium memory now); a running average drawn over the points would be cheaper.

@@ -140,6 +140,28 @@ export function decide(model: Model, active: readonly number[], temperature = 1,
   return { ...fw, probs, sample: allowed ? mask(probs, allowed) : probs };
 }
 
+/**
+ * For each active input, the chance of action `target` (at the temperature, unmasked) with that one input left out:
+ * the Inside the model tab's "what pushed him" (leave-one-out, so it is exact for this network, not a guess). An
+ * input whose removal lowers the chance pushed him toward the action; one whose removal raises it held him back.
+ */
+export function withoutEach(model: Model, active: readonly number[], target: number, temperature = 1): number[] {
+  const { nH, w1, b1, w2, b2 } = model;
+  const pre = Float32Array.from(b1);
+  for (const i of active) for (let j = 0; j < nH; j++) pre[j] += w1[i * nH + j];
+  const hid = new Float32Array(nH);
+  const logits = new Float32Array(N_OUT);
+  return active.map((i) => {
+    for (let j = 0; j < nH; j++) hid[j] = Math.tanh(pre[j] - w1[i * nH + j]);
+    for (let o = 0; o < N_OUT; o++) {
+      let s = b2[o];
+      for (let j = 0; j < nH; j++) s += w2[o * nH + j] * hid[j];
+      logits[o] = s;
+    }
+    return softmax(logits, temperature)[target];
+  });
+}
+
 /** Index drawn from probabilities with one random number in [0, 1). */
 export function sampleIndex(probs: ArrayLike<number>, r: number): number {
   let acc = 0;

@@ -4,6 +4,7 @@
  * action he took on it, oldest first, then the view now and "?" for the action to come. Empty slots at the start
  * of a raid show as empty, as the model gets them (all zero).
  */
+import type { CardKey } from '../explain';
 import type { RaidTurn } from '../raid';
 import { DARK, MONSTER_VIEW_KIND, VIEW_SIZE, type ViewCell } from '../sight';
 import { MONSTER_KINDS, SHOWN } from '../tiles';
@@ -48,13 +49,17 @@ const actionToken = (a: number, title: string) =>
  * Draw the strip for a raid of `memory` remembered pairs: `turns` so far and the state now. With no turns yet
  * every slot is empty.
  */
-export function renderStrip(el: HTMLElement, state: RaidState, turns: readonly RaidTurn[], memory: number): void {
+export function renderStrip(
+  el: HTMLElement, state: RaidState, turns: readonly RaidTurn[], memory: number, card?: (key: CardKey) => Node,
+): void {
   clear(el);
   el.setAttribute('aria-label', 'His memory');
   const what = `What the model reads: his stats, pinned (they never scroll out), his last ${memory === 1 ? 'view and action' : `${memory} views and actions`}, and the view now.`;
   const pinned = h('div', { class: 'strip-pinned', title: what },
     h('strong', { class: 'strip-label' }, 'His memory'),
+    card?.('tokens'),
     h('span', { class: 'pin' }, 'pinned'),
+    card?.('pinned'),
     ...pinnedWords(state).map((w) => h('span', { class: 'chip' }, w)));
   const row = h('div', { class: 'strip-row' });
   const first = Math.max(0, turns.length - memory);

@@ -203,3 +203,56 @@ button.primary:hover:not(:disabled) { background: #234b5d; }
 .arrow-next { color: var(--muted); }
 .strip-more, .strip-end { color: var(--muted); font-size: 0.85rem; flex: none; }
 @media (prefers-reduced-motion: reduce) { .bubble, .bar-fill { animation: none; transition: none; } }
+
+/* AI idea badges and their cards (step 8.4) */
+.ai-badge {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; line-height: 1; padding: 0.22em 0.38em;
+  border-radius: 5px; border: 1px solid var(--accent); background: #e6eef1; color: var(--accent);
+  vertical-align: 0.15em; margin-left: 0.15em;
+}
+.ai-badge:hover:not(:disabled), .ai-badge[aria-expanded="true"] { background: var(--accent); color: #fff; }
+.ai-badge.fresh { background: var(--accent); color: #fff; animation: ai-pulse 1.4s ease-in-out 5; }
+@keyframes ai-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(44, 93, 115, 0.8); } 50% { box-shadow: 0 0 0 6px rgba(44, 93, 115, 0); } }
+@media (prefers-reduced-motion: reduce) { .ai-badge.fresh { animation: none; box-shadow: 0 0 0 3px rgba(44, 93, 115, 0.45); } }
+.ai-pop {
+  position: fixed; z-index: 20; width: min(22rem, calc(100vw - 16px)); background: var(--card); color: var(--ink);
+  border: 1px solid var(--accent); border-radius: 10px; padding: 0.6em 0.8em 0.4em; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+}
+.ai-pop::before {
+  content: ''; position: absolute; top: -8px; left: calc(var(--arrow-x, 50%) - 7px); width: 14px; height: 14px;
+  background: var(--card); border-left: 1px solid var(--accent); border-top: 1px solid var(--accent); transform: rotate(45deg);
+}
+.ai-pop.above::before { top: auto; bottom: -8px; transform: rotate(225deg); }
+.ai-pop:focus { outline: none; }
+.ai-pop:focus-visible { outline: 3px solid #1f78b4; }
+.ai-pop-head { display: flex; align-items: baseline; gap: 0.5em; }
+.ai-pop-head strong { flex: 1; font-size: 0.95rem; }
+.ai-tag { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.ai-close { border: none; background: none; font-size: 1.2rem; line-height: 1; padding: 0 0.2em; }
+.ai-pop p { margin: 0.35em 0; font-size: 0.92rem; }
+
+/* Many raids */
+.ends { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.4rem 0 0.6rem; }
+.end-row { display: grid; grid-template-columns: 7.2rem 1fr 5.8rem; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+.end-track { position: relative; height: 1rem; background: #f1ecdf; border: 1px solid #e2d9c6; border-radius: 4px; }
+.end-fill { position: absolute; inset: 0 auto 0 0; display: block; overflow: hidden; border-radius: 3px 0 0 3px; }
+.end-fill svg { display: block; }
+.end-teacher { position: absolute; top: -3px; bottom: -3px; width: 0; margin-left: -1px; border-left: 2px dashed #b07818; }
+.end-pct { text-align: right; font-variant-numeric: tabular-nums; }
+.many-table, .inside-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin-bottom: 0.4rem; }
+.many-table th, .many-table td, .inside-table th, .inside-table td { padding: 0.2em 0.4em; border-bottom: 1px solid #eee6d2; text-align: right; font-variant-numeric: tabular-nums; }
+.many-table th:first-child, .inside-table th { text-align: left; font-weight: 400; }
+.many-table thead th { font-weight: 600; color: var(--muted); }
+.inside-table td:last-child { text-align: left; font-size: 0.82rem; }
+.inside-table tr.total th, .inside-table tr.total td:nth-child(2) { font-weight: 700; }
+
+/* Inside the model */
+.flow { display: flex; align-items: center; gap: 0.4rem; margin: 0.3rem 0 0.6rem; }
+.flow-box { display: flex; flex-direction: column; align-items: center; padding: 0.35em 0.7em; border: 1px solid var(--line); border-radius: 8px; background: #faf7f0; }
+.flow-box strong { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.flow-box small { color: var(--muted); }
+.flow-arrow { font-size: 1.2rem; color: var(--muted); }
+.pushes { margin: 0 0 0.5rem; padding-left: 1.4em; font-size: 0.9rem; }
+.pushes li { margin: 0.1em 0; }
+.pushes-head { font-weight: 600; margin: 0.3rem 0 0.1rem; }
+.panel .bars + h3 { margin-top: 0.6rem; }

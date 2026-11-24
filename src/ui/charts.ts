@@ -33,7 +33,7 @@ export const CHART = {
 const JUDGE_COLORS: Record<Judge, string> = { goldOut: CHART.his, goldPickedUp: CHART.teacher, monstersBeaten: CHART.lockedIn };
 
 /** How a raid ended, bottom to top in a column; each has a colour and a texture (shape plus colour). */
-const ENDS = [
+export const ENDS = [
   { key: 'left', label: 'Left with gold', color: CHART.leftGold, fill: CHART.leftGold },
   { key: 'leftNoGold', label: 'Left with none', color: CHART.leftEmpty, fill: 'url(#chart-dots)' },
   { key: 'lockedIn', label: 'Locked in', color: CHART.lockedIn, fill: 'url(#chart-hatch-135)' },
@@ -44,7 +44,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 const fmt = (v: number) => (v >= 10 ? Math.round(v).toString() : v.toFixed(1));
 
 /** The textures, defined once per page so their ids stay unique. */
-function ensurePatterns(): void {
+export function ensurePatterns(): void {
   if (document.getElementById('chart-dots')) return;
   const hatch = (id: string, angle: number, color: string) =>
     s('pattern', { id, width: 6, height: 6, patternUnits: 'userSpaceOnUse', patternTransform: `rotate(${angle})` },

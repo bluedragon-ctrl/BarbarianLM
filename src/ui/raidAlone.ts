@@ -6,6 +6,7 @@
  * option, step / play / to the end, and the saga once the raid is over.
  */
 import type { Dungeon } from '../dungeon';
+import type { CardKey } from '../explain';
 import { DATA } from '../events';
 import { FloorMarks } from '../marks';
 import { Raid, sagaStream, storyStreams, type RaidTurn } from '../raid';
@@ -29,6 +30,8 @@ export interface RaidHost {
   showTurn(turn: RaidTurn | null, fx: boolean): void;
   /** Redraw the panel. */
   renderPanel(): void;
+  /** An "AI" badge. */
+  card(key: CardKey, place?: string): Node;
 }
 
 export class RaidAlone {
@@ -175,22 +178,7 @@ export class RaidAlone {
     const r = this.ensure();
     r.options.temperature = this.host.settings.boldness;
     r.options.block = this.host.settings.block;
-    const p = r.peek();
-    clear(this.barsEl);
-    if (!p) return;
-    const top = Math.max(...p.probs);
-    ACTION_LABELS.forEach((label, a) => {
-      const blocked = p.allowed ? !p.allowed[a] : false;
-      const v = p.probs[a];
-      this.barsEl.append(h('div', {
-        class: `bar-row ${blocked ? 'blocked' : ''} ${v === top ? 'likeliest' : ''}`, role: 'listitem',
-        title: blocked ? `${label}: ${percent(v)}, blocked: it would do nothing here, so it is never drawn` : `${label}: ${percent(v)}`,
-      },
-      h('span', { class: `bar-mark ${a <= 3 ? 'move' : ''}` }, ACTION_MARKS[a]),
-      h('span', { class: 'bar-name' }, label),
-      h('span', { class: 'bar-track' }, h('span', { class: 'bar-fill', style: `width: ${(v * 100).toFixed(1)}%` })),
-      h('span', { class: 'bar-pct' }, percent(v))));
-    });
+    fillBars(this.barsEl, r.peek());
   }
 
   private renderTurn(): void {
@@ -223,7 +211,7 @@ export class RaidAlone {
     if (!ended) this.renderBars();
     this.renderTurn();
     return [
-      h('h2', {}, 'Raid alone'),
+      h('h2', {}, 'Raid alone ', host.card('agentLoop', 'raid')),
       h('p', { class: 'caption' }, 'He raids on his own. Each turn his model gives every action a chance, and one is drawn at random, the way a language model picks its next word.'),
       h('div', { class: 'group' },
         h('div', { class: 'row spaced' },
@@ -250,7 +238,7 @@ export class RaidAlone {
           h('input', { type: 'checkbox', checked: st.block, onchange: (e: Event) => { host.setQuietly({ block: (e.target as HTMLInputElement).checked }); if (!ended) this.renderBars(); } }),
           h('span', {}, 'Block impossible actions', h('small', { class: 'muted' }, ' Struck through, never drawn.')))),
       ended ? this.endBox() : h('div', { class: 'group' },
-        h('h3', {}, 'His next action'),
+        h('h3', {}, 'His next action ', host.card('probabilities', 'raid')),
         this.barsEl,
         this.lineEl),
     ];
@@ -264,9 +252,9 @@ export class RaidAlone {
         : 'The gate closed at sundown. Locked in till morning; the keeper keeps the gold.';
     const saga = this.saga ?? [];
     return h('div', { class: 'group' },
-      h('p', { class: `end ${st.ended === 'left' && st.gold > 0 ? 'good' : 'bad'}` }, text),
+      h('p', { class: `end ${st.ended === 'left' && st.gold > 0 ? 'good' : 'bad'}` }, text, ' ', this.host.card('leave', 'end')),
       h('div', { class: 'saga' },
-        h('h3', {}, 'The skald\'s saga'),
+        h('h3', {}, 'The skald\'s saga ', this.host.card('saga', 'end')),
         h('ol', {}, ...saga.map((x) => h('li', { class: x.madeUp ? 'made-up' : '' },
           mark(x.madeUp), h('span', {}, x.text)))),
         h('p', { class: 'saga-count' }, `${sagaCount(saga)}${this.telling ? ` · telling ${this.telling + 1}` : ''}`),
@@ -282,3 +270,23 @@ const mark = (madeUp: boolean) => {
   el.append(s('g', { transform: 'scale(1.3)' }, madeUp ? cloudMark() : runeStone()));
   return el;
 };
+
+/** The action bars for one turn's probabilities (unmasked); blocked actions struck through. Empty once ended. */
+export function fillBars(el: HTMLElement, p: { probs: ArrayLike<number>; allowed?: readonly boolean[] } | null): HTMLElement {
+  clear(el);
+  if (!p) return el;
+  const top = Math.max(...Array.from(p.probs));
+  ACTION_LABELS.forEach((label, a) => {
+    const blocked = p.allowed ? !p.allowed[a] : false;
+    const v = p.probs[a];
+    el.append(h('div', {
+      class: `bar-row ${blocked ? 'blocked' : ''} ${v === top ? 'likeliest' : ''}`, role: 'listitem',
+      title: blocked ? `${label}: ${percent(v)}, blocked: it would do nothing here, so it is never drawn` : `${label}: ${percent(v)}`,
+    },
+    h('span', { class: `bar-mark ${a <= 3 ? 'move' : ''}` }, ACTION_MARKS[a]),
+    h('span', { class: 'bar-name' }, label),
+    h('span', { class: 'bar-track' }, h('span', { class: 'bar-fill', style: `width: ${(v * 100).toFixed(1)}%` })),
+    h('span', { class: 'bar-pct' }, percent(v))));
+  });
+  return el;
+}

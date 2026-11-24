@@ -1,8 +1,8 @@
 /**
  * The app: tabs in the order the story goes, the board, and a side panel per tab. Built so far: the Dungeon tab
  * (pick a code, look around, walk him yourself), Lessons and Practice (`training.ts`, with the model and its jobs
- * in `trainer.ts`), Raid alone (`raidAlone.ts`, with the memory strip in `strip.ts`) and Settings; the other tabs
- * come in later steps.
+ * in `trainer.ts`), Raid alone (`raidAlone.ts`, with the memory strip in `strip.ts`), Many raids (`many.ts`), Inside
+ * the model (`inside.ts`) and Settings. Small "AI" badges open the AI idea cards (`aiCard.ts`, `src/explain.ts`).
  */
 import { generateDungeon, type Dungeon } from '../dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel } from '../events';
@@ -14,7 +14,12 @@ import { TeacherRaid, type TeacherName, type TeacherTurn } from '../teachers';
 import { MEMORY_SIZES, type MemoryName } from '../tokens';
 import type { Judge } from '../train';
 import { DOWN, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, RULES, UP, WAIT, DRINK, newRaid, step, torchLit, type Action, type RaidState } from '../world';
+import type { CardKey } from '../explain';
+import type { StepResult } from '../world';
+import { aiBadge, closeCard } from './aiCard';
 import { Board } from './board';
+import { insidePanel, type InsideHost } from './inside';
+import { ManyRaids, type ManyHost } from './many';
 import { RaidAlone, type RaidHost } from './raidAlone';
 import { renderStrip } from './strip';
 import { add, clear, h, s } from './dom';
@@ -26,13 +31,13 @@ import {
 } from './symbols';
 
 type TabId = 'dungeon' | 'lessons' | 'raid' | 'practice' | 'many' | 'inside' | 'settings';
-const TABS: { id: TabId; label: string; soon?: string }[] = [
+const TABS: { id: TabId; label: string }[] = [
   { id: 'dungeon', label: '1. Dungeon' },
   { id: 'lessons', label: '2. Lessons' },
   { id: 'raid', label: '3. Raid alone' },
   { id: 'practice', label: '4. Practice' },
-  { id: 'many', label: '5. Many raids', soon: 'Hundreds of raids at once, and what they add up to.' },
-  { id: 'inside', label: '6. Inside the model', soon: 'The numbers he reads and the weights that turn them into actions.' },
+  { id: 'many', label: '5. Many raids' },
+  { id: 'inside', label: '6. Inside the model' },
   { id: 'settings', label: '⚙ Settings' },
 ];
 
@@ -72,7 +77,7 @@ const ACTION_BUTTONS: { a: Action; label: string; key: string }[] = [
 
 const MEMORY_LABELS: Record<MemoryName, string> = { short: 'Short', medium: 'Medium', long: 'Long' };
 
-export class App implements TrainingHost, RaidHost {
+export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   tab: TabId = 'dungeon';
   settings: Settings = { ...DEFAULT_SETTINGS };
   dungeon!: Dungeon;
@@ -88,6 +93,10 @@ export class App implements TrainingHost, RaidHost {
   readonly watchLine = h('p', { class: 'watch-line', 'aria-live': 'polite' });
   private readonly board = new Board();
   readonly raidAlone = new RaidAlone(this);
+  readonly many = new ManyRaids(this);
+  /** The AI card whose badges pulse (the first time it is relevant), and the cards already made relevant. */
+  private fresh: CardKey | null = null;
+  private readonly cardsSeen = new Set<CardKey>();
   private readonly stripEl = h('div', { class: 'strip', hidden: true });
   private readonly tabsEl = h('nav', { class: 'tabs', role: 'tablist' });
   private readonly statsEl = h('div', { class: 'stats', 'aria-live': 'polite' });
@@ -123,13 +132,52 @@ export class App implements TrainingHost, RaidHost {
   choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'judge' | 'practiceCount'>>): void {
     Object.assign(this, patch);
     if (patch.teacher && this.watch) this.stopWatch();
+    if (patch.teacher === 'pickaxe') this.relevant('pickaxe');
     this.renderPanel();
   }
 
   private onTrainerChange(): void {
+    const st = this.trainer.stats;
+    if (!this.trainer.busy && st.lessons) this.relevant('lessons');
+    if (!this.trainer.busy && st.practiceRaids) this.relevant('practice');
     if (this.tab === 'lessons' || this.tab === 'practice' || this.tab === 'settings') this.renderPanel();
     // A raid that has not started yet takes his newest model.
-    else if (this.tab === 'raid' && !this.raidAlone.raid?.turns.length && !this.raidAlone.playing) this.render();
+    else if ((this.tab === 'raid' || this.tab === 'inside') && !this.raidAlone.raid?.turns.length && !this.raidAlone.playing) this.render();
+  }
+
+  // ── AI idea cards ──
+
+  /** An "AI" badge for a card; it pulses while the card is fresh. */
+  card(key: CardKey, place?: string): Node {
+    return aiBadge(key, { fresh: this.fresh === key, place, onOpen: (k) => { if (this.fresh === k) this.setFresh(null); } });
+  }
+
+  /** A card is relevant now: its badges pulse, but only the first time. */
+  relevant(key: CardKey): void {
+    if (this.cardsSeen.has(key)) return;
+    this.cardsSeen.add(key);
+    this.setFresh(key);
+  }
+
+  private setFresh(key: CardKey | null): void {
+    this.fresh = key;
+    document.querySelectorAll('.ai-badge').forEach((b) => b.classList.toggle('fresh', b.getAttribute('data-card') === key));
+  }
+
+  /** The cards a turn just taken makes relevant (his own raid or your walk). */
+  private turnCards(r: StepResult): void {
+    if (r.hits.length || r.trapDamage) this.relevant('agentLoop');
+    if (r.did === 'light') this.relevant('torch');
+    else if (r.did === 'drink' || (r.did === 'pickUp' && !r.goldGained)) this.relevant('tools');
+    else if (r.goldGained) this.relevant('pinned');
+  }
+
+  manyChanged(): void {
+    if (this.tab === 'many') this.renderPanel();
+  }
+
+  raidOnScreen() {
+    return this.raidAlone.ensure();
   }
 
   setQuietly(patch: Partial<Settings>): void {
@@ -144,6 +192,11 @@ export class App implements TrainingHost, RaidHost {
     const st = raid.state;
     if (!turn) this.board.reset();
     this.board.render(st, this.boardOptions());
+    if (turn) {
+      this.relevant('probabilities');
+      this.turnCards(turn.result);
+      if (st.ended) this.relevant(st.ended === 'left' && turn.result.did === 'leave' && st.gold > 0 ? 'leave' : 'saga');
+    }
     if (turn && fx) {
       this.board.effects(st, turn.result);
       for (const e of turn.events ?? []) {
@@ -157,10 +210,10 @@ export class App implements TrainingHost, RaidHost {
   }
 
   private renderStrip(): void {
-    const raid = this.tab === 'raid' ? this.raidAlone.raid : null;
+    const raid = this.tab === 'raid' || this.tab === 'inside' ? this.raidAlone.raid : null;
     this.stripEl.hidden = !raid;
     this.stripEl.parentElement?.parentElement?.classList.toggle('with-strip', !!raid);
-    if (raid) renderStrip(this.stripEl, raid.state, raid.turns, raid.memory.size);
+    if (raid) renderStrip(this.stripEl, raid.state, raid.turns, raid.memory.size, (k) => this.card(k, 'strip'));
   }
 
   /** A fresh model, after asking if he has learned anything. */
@@ -234,6 +287,7 @@ export class App implements TrainingHost, RaidHost {
     const r = step(w.state, a, w.monsterRng);
     w.marks.after(r, w.state.pos, w.state.turn);
     const met = w.events?.after(w.state) ?? [];
+    this.turnCards(r);
     this.board.render(w.state, this.boardOptions());
     this.board.effects(w.state, r);
     for (const e of met) {
@@ -258,7 +312,7 @@ export class App implements TrainingHost, RaidHost {
   /** What the board shows: your walk on the Dungeon tab, a watched lesson, or the dungeon before anyone moves. */
   private shown(): { state: RaidState; marks: FloorMarks | null; walk: boolean } {
     if (this.tab === 'dungeon') return { state: this.walk.state, marks: this.walk.marks, walk: true };
-    if (this.tab === 'raid') {
+    if (this.tab === 'raid' || this.tab === 'inside') {
       const r = this.raidAlone.ensure();
       return { state: r.state, marks: this.raidAlone.marks, walk: false };
     }
@@ -276,7 +330,7 @@ export class App implements TrainingHost, RaidHost {
       // Lessons and practice never have events.
       spots: !st.events || !st.showEvents ? null
         : sh.walk ? this.walk.events?.setup.spots ?? null
-          : this.tab === 'raid' ? this.raidAlone.raid?.events?.setup.spots ?? null : null,
+          : this.tab === 'raid' || this.tab === 'inside' ? this.raidAlone.raid?.events?.setup.spots ?? null : null,
     };
   }
 
@@ -287,7 +341,10 @@ export class App implements TrainingHost, RaidHost {
       this.watch = null;
     }
     if (this.tab === 'raid') this.raidAlone.pause();
+    closeCard();
     this.tab = id;
+    if (id === 'raid') this.relevant('tokens');
+    if (id === 'inside') this.relevant('buckets');
     this.board.reset();
     this.render();
   }
@@ -320,20 +377,20 @@ export class App implements TrainingHost, RaidHost {
       stat(heartIcon(low), 'HP', `${st.hp} / ${st.maxHp}`, low ? 'danger' : ''),
       stat(swordIcon(), 'Attack', String(st.attack)),
       stat(icon(potion(), 0.55), 'Potions', String(st.potions)),
-      stat(icon(torch(lit), 0.55), 'Torches', lit ? `${st.torches} · lit ${st.torchLeft}` : String(st.torches)),
+      stat(icon(torch(lit), 0.55), 'Torches', lit ? `${st.torches} · lit ${st.torchLeft}` : String(st.torches), '', this.card('torch', 'stats')),
       stat(icon(itemSymbol(SHOWN.smallGold)!, 0.6), 'Gold', String(st.gold)),
       stat(sunIcon(), 'Time left', String(st.timeLeft), st.timeLeft <= 20 ? 'warn-text' : ''));
   }
 
   renderPanel(): void {
     clear(this.panelEl);
-    const t = TABS.find((x) => x.id === this.tab)!;
     if (this.tab === 'dungeon') this.dungeonPanel();
     else if (this.tab === 'lessons') add(this.panelEl, ...lessonsPanel(this));
     else if (this.tab === 'practice') add(this.panelEl, ...practicePanel(this));
     else if (this.tab === 'raid') add(this.panelEl, ...this.raidAlone.panel());
+    else if (this.tab === 'many') add(this.panelEl, ...this.many.panel());
+    else if (this.tab === 'inside') add(this.panelEl, ...insidePanel(this));
     else if (this.tab === 'settings') this.settingsPanel();
-    else this.panelEl.append(h('h2', {}, t.label.replace(/^\d+\. /, '')), h('p', {}, t.soon ?? ''), h('p', { class: 'muted' }, 'Coming soon.'));
   }
 
   private dungeonPanel(): void {
@@ -369,7 +426,7 @@ export class App implements TrainingHost, RaidHost {
       : st.ended === 'knockedOut' ? 'Knocked out! The keeper carries him out. The gold stays behind.'
         : st.ended === 'lockedIn' ? 'The gate closed at sundown. Locked in till morning; the keeper keeps the gold.' : '';
     return h('div', { class: 'group' },
-      h('h3', {}, 'Walk him yourself'),
+      h('h3', {}, 'Walk him yourself ', this.card('tools', 'walk')),
       h('p', { class: 'muted' }, 'You pick each action, the way the model will. Arrow keys walk, attack and dig.'),
       h('div', { class: 'walk' },
         h('div', { class: 'pad' }, arrow(UP, 'Up', 'up'), arrow(LEFT, 'Left', 'left'), arrow(DOWN, 'Down', 'down'), arrow(RIGHT, 'Right', 'right')),
@@ -491,6 +548,6 @@ const sunIcon = () => icon(s('g', {},
   s('path', { d: 'M-16 8 A16 16 0 0 1 16 8 Z', fill: '#f2c14e', stroke: COLORS.ink, 'stroke-width': 1.3 }),
   s('path', { d: 'M-18 8 H18', stroke: COLORS.ink, 'stroke-width': 2 })), 0.55);
 
-function stat(ic: SVGSVGElement, label: string, value: string, cls = ''): HTMLElement {
-  return h('div', { class: `stat ${cls}` }, ic, h('span', { class: 'label' }, label), h('strong', {}, value));
+function stat(ic: SVGSVGElement, label: string, value: string, cls = '', badge?: Node): HTMLElement {
+  return h('div', { class: `stat ${cls}` }, ic, h('span', { class: 'label' }, label), h('strong', {}, value), badge);
 }
