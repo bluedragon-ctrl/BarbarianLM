@@ -4,11 +4,11 @@ import { createAdam, createModel, decide, sampleIndex, type Model } from '../src
 import { Raid, memoryPairs, raid, raidStreams, type RaidRecord, type RaidTurn } from '../src/raid';
 import { codesFrom, countRaid, manyRaids, newCounts, summary } from '../src/raids';
 import { mulberry32 } from '../src/rng';
-import { teacherRaid } from '../src/teachers';
+import { TEACHERS, teacherRaid } from '../src/teachers';
 import { MEMORY_SIZES, encode, inputSize, newMemory, remember } from '../src/tokens';
 import {
   LOOP, advantage, beatenReward, judgeRewards, learnFromRaid, lessonExamples, lessonLoss, newStats, rewardToGo, updateBaseline,
-  runJob, trainLessons, trainPractice, type WorkerResponse,
+  runJob, teacherTests, trainLessons, trainPractice, type WorkerResponse,
 } from '../src/train';
 import {
   DRINK, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, WAIT, newRaid, step, view, type Action, type StepResult,
@@ -273,7 +273,8 @@ describe('the worker job', () => {
     const done = msgs[2] as Extract<WorkerResponse, { type: 'done' }>;
     expect(done.stats.lessons).toBe(LOOP.chunk + 1);
     expect(done.adam!.t).toBeGreaterThan(0);
-    expect(done.stats.evals.length).toBe(2); // after the first chunk and the last raid
+    expect(done.stats.evals.length).toBe(3); // before the first lesson, after the first chunk and after the last
+    expect(done.stats.evals.map((e) => [e.x, e.where, e.phase])).toEqual([[0, 'new', 'lessons'], [LOOP.chunk, 'new', 'lessons'], [LOOP.chunk + 1, 'new', 'lessons']]);
     expect((msgs[0] as Extract<WorkerResponse, { type: 'progress' }>).done).toBe(LOOP.chunk);
   });
 
@@ -283,6 +284,40 @@ describe('the worker job', () => {
     const raids = run({ kind: 'raids', model: model(), plan: { code: 'W', count: LOOP.chunk + 2 }, temperature: 1, block: true });
     expect(raids.map((x) => x.type)).toEqual(['progress', 'raidsDone']);
     expect((raids[1] as Extract<WorkerResponse, { type: 'raidsDone' }>).counts.raids).toBe(LOOP.chunk + 2);
+  });
+
+  it('tests first only where there is no test at that point yet, and tags practice tests and scores', () => {
+    const m = model();
+    const first = run({ kind: 'lessons', model: m, stats: newStats(), count: 1, seed: 1, teacher: 'healer', dungeon: 'FIRST' });
+    const a = (first.at(-1) as Extract<WorkerResponse, { type: 'done' }>).stats;
+    expect(a.evals.map((e) => [e.x, e.where])).toEqual([[0, 'FIRST'], [1, 'FIRST']]);
+    // Practice in the same dungeon starts where lessons left off: no second test at x = 1.
+    const p = run({ kind: 'practice', model: m, stats: a, count: 1, seed: 2, judge: 'goldPickedUp', dungeon: 'FIRST' });
+    const b = (p.at(-1) as Extract<WorkerResponse, { type: 'done' }>).stats;
+    expect(b.evals.map((e) => [e.x, e.where, e.phase])).toEqual([[0, 'FIRST', 'lessons'], [1, 'FIRST', 'lessons'], [2, 'FIRST', 'practice']]);
+    expect(b.practiceScore[0].judge).toBe('goldPickedUp');
+    // Somewhere else, he is tested there first.
+    const q = run({ kind: 'practice', model: m, stats: b, count: 1, seed: 3, judge: 'goldOut' });
+    const c = (q.at(-1) as Extract<WorkerResponse, { type: 'done' }>).stats;
+    expect(c.evals.slice(3).map((e) => [e.x, e.where])).toEqual([[2, 'new'], [3, 'new']]);
+  });
+
+  it('measures the teachers on his test raids, one progress message per teacher', () => {
+    const msgs = run({ kind: 'teachers', teachers: ['thief', 'healer'], dungeon: 'TEACH' });
+    expect(msgs.map((x) => x.type)).toEqual(['progress', 'teachersDone']);
+    const done = msgs[1] as Extract<WorkerResponse, { type: 'teachersDone' }>;
+    expect(Object.keys(done.teachers)).toEqual(['thief', 'healer']);
+    expect(done.teachers.healer).toEqual(teacherTests('healer', 'TEACH'));
+    expect(done.teachers.healer!.raids).toBe(LOOP.evalRaids);
+    // The same raids as his tests: raids 0–19 of the dungeon, played as in the lessons.
+    const d = generateDungeon('TEACH');
+    const gold = Array.from({ length: LOOP.evalRaids }, (_, n) => {
+      const s = teacherRaid(d, 'healer', n).state;
+      return s.ended === 'left' ? s.gold : 0;
+    }).reduce((x, y) => x + y, 0);
+    expect(done.teachers.healer!.goldOut).toBeCloseTo(gold / LOOP.evalRaids);
+    expect(run({ kind: 'teachers', teachers: ['wizard' as never] })).toEqual([{ type: 'error', message: 'No teacher called wizard' }]);
+    expect(TEACHERS.length).toBe(7);
   });
 
   it('reports errors as a message', () => {

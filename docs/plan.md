@@ -83,7 +83,7 @@ Thoughts and the saga have streams of their own (step 7 split them from the even
 Built in a few PRs:
 
 1. Shell, tabs, board with original SVG symbols (tiles, monsters with HP and gold, dimmed dark cells, wounded shape), settings. **Done:** plus the torchlight (glow, flicker, burning low, smoke when it goes out), coins scattering, pools and prints, and walking him yourself on the Dungeon tab (see "Visuals" in the design).
-2. Lessons and Practice with progress charts.
+2. Lessons and Practice with progress charts. **Done:** teacher and judge pickers with the teachers' numbers on his test raids, counts, run and Stop (which throws the round away), the outcome and judge's score charts, and watching a lesson on the board (see "Lessons and Practice" under Visuals in the design).
 3. Raid alone: action bars (blocked ones struck through), memory strip, thought bubble, saga, speed and autoplay, damage and coin pop-ups.
 4. Many raids, Inside the model, AI idea cards.
 5. Save and links, hall of fame, dungeon of the day.

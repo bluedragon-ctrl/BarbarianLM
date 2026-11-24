@@ -4,6 +4,7 @@
  */
 import { generateDungeon, type Dungeon } from './dungeon';
 import type { Model } from './model';
+import type { StepResult } from './world';
 import { raid, type RaidOptions, type RaidRecord } from './raid';
 import { randomCode, rngFrom } from './rng';
 
@@ -39,8 +40,11 @@ export const newCounts = (): RaidCounts => ({
   walls: 0, wasted: 0, waits: 0, goldPickedUp: 0, beaten: 0, events: 0, eventEffects: 0, eventGold: 0,
 });
 
+/** A finished raid as counting needs it: his own (a `RaidRecord`) or a teacher's. */
+export type Counted = Pick<RaidRecord, 'state' | 'events'> & { turns: readonly { result: StepResult }[] };
+
 /** Add one finished raid to the counts. */
-export function countRaid(c: RaidCounts, r: Pick<RaidRecord, 'state' | 'turns' | 'events'>): RaidCounts {
+export function countRaid(c: RaidCounts, r: Counted): RaidCounts {
   const s = r.state;
   c.raids++;
   if (s.ended === 'left') {

@@ -35,16 +35,16 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path (giving up after a few steps), wander |
 | `src/tokens.ts` | What the model reads: pinned buckets, stairs compass, view and memory encoding as sparse one-hot indices, `SAVE_VERSION` |
 | `src/model.ts` | The network: sparse forward, softmax with temperature, masking, imitation and policy-gradient gradients, lazy Adam and SGD, saves |
-| `src/teachers.ts` | The seven teachers: what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `teacherRaid` |
+| `src/teachers.ts` | The seven teachers: what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `TeacherRaid` and `teacherRaid` |
 | `src/raid.ts` | A raid alone: one sampled action a turn from the model, boldness, "Block impossible actions", events, the per-turn record |
 | `src/raids.ts` | Many raids and their counts, events met included |
-| `src/train.ts` | Lessons (imitation, Adam), practice (policy gradient, SGD, the three judges), test raids, `runJob` for the worker |
+| `src/train.ts` | Lessons (imitation, Adam), practice (policy gradient, SGD, the three judges), test raids and the teachers' numbers on them, `runJob` for the worker |
 | `src/events.ts`, `src/data/events.json` | Hidden events: the cast, thought and saga lines, places and spots, the five effects, `EventTracker` |
 | `src/thoughts.ts` | His thoughts after actions, by how sure he was and what happened |
 | `src/saga.ts` | The skald's saga: true sentences from the record, borrowed events, boasts and fantasy by boldness |
 | `src/worker.ts`, `src/workerClient.ts` | The Web Worker that runs `runJob`, and the page's side of it |
 | `src/marks.ts` | Floor marks for the board: pools where monsters fall, his prints after walking through one |
-| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `dom.ts` |
+| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself, watching a lesson), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `trainer.ts` (his model, its stats and the worker jobs), `training.ts` (the Lessons and Practice panels), `charts.ts` (their charts), `dom.ts` |
 
 ## Starting point
 
