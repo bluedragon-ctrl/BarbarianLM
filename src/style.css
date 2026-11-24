@@ -256,3 +256,16 @@ button.primary:hover:not(:disabled) { background: #234b5d; }
 .pushes li { margin: 0.1em 0; }
 .pushes-head { font-weight: 600; margin: 0.3rem 0 0.1rem; }
 .panel .bars + h3 { margin-top: 0.6rem; }
+
+/* Save and links, hall of fame, dungeon of the day (step 8.5) */
+.day-badge { font-size: 0.85rem; font-weight: 600; color: #7a5410; background: #fbefd2; border: 1px solid #e6c98a; border-radius: 999px; padding: 0.05em 0.6em; }
+.hall summary { font-weight: 700; cursor: pointer; }
+.hall-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 0.4rem 0; }
+.hall-table th, .hall-table td { padding: 0.2em 0.4em; border-bottom: 1px solid #eee6d2; text-align: left; font-variant-numeric: tabular-nums; }
+.hall-table th { font-weight: 400; color: var(--muted); }
+.hall-table td:nth-child(2) { color: #7a5410; }
+.hall-table .code { font-size: 0.9rem; }
+.hall-table tr.playing td { background: #f3efe3; }
+.hall-table button { padding: 0.1em 0.6em; }
+.day-mark { color: #b07a14; }
+.hall-news { font-weight: 700; color: #7a5410; }

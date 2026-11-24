@@ -8,7 +8,7 @@
  */
 import { generateDungeon, type Dungeon } from './dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel, type EventKind, type EventMet, type EventSpot } from './events';
-import { decide, sampleIndex, type Model } from './model';
+import { decide, mask, sampleIndex, type Model } from './model';
 import { rngFrom } from './rng';
 import type { ViewCell } from './sight';
 import { PAIR_SIZE, encode, inputSize, newMemory, remember, PINNED_SIZE, VIEW_INPUTS, type Memory } from './tokens';
@@ -22,6 +22,20 @@ export interface RaidOptions {
   block?: boolean;
   /** Hidden dungeon events (default off). Lessons and practice never have them. */
   events?: boolean | EventOptions;
+  /**
+   * A replay (the hall of fame): the actions taken and their unmasked probabilities, turn by turn, played back
+   * instead of the model's draws. The streams are the same, so the dungeon, the monsters and the events answer as
+   * they did the first time.
+   */
+  script?: RaidScript;
+}
+
+/** A raid's actions and the probabilities they were drawn from, for playing it back without its model. */
+export interface RaidScript {
+  /** The remembered pairs of the model that played it. */
+  memory: number;
+  actions: readonly Action[];
+  probs: readonly ArrayLike<number>[];
 }
 
 export interface EventOptions {
@@ -107,9 +121,11 @@ export class Raid {
   readonly events?: EventTracker;
   private readonly streams: ReturnType<typeof raidStreams>;
 
-  constructor(readonly model: Model, readonly dungeon: Dungeon, readonly n = 0, readonly options: RaidOptions = {}) {
+  /** `model` is null only for a replay (`options.script`). */
+  constructor(readonly model: Model | null, readonly dungeon: Dungeon, readonly n = 0, readonly options: RaidOptions = {}) {
+    if (!model && !options.script) throw new Error('A raid needs a model or a script');
     this.state = newRaid(dungeon);
-    this.memory = newMemory(memoryPairs(model));
+    this.memory = newMemory(options.script ? options.script.memory : memoryPairs(model!));
     this.streams = raidStreams(dungeon.code, n);
     if (options.events) {
       const o = options.events === true ? {} : options.events;
@@ -131,8 +147,19 @@ export class Raid {
   peek(): { probs: Float32Array; sample: Float32Array; allowed?: boolean[] } | null {
     if (this.state.ended) return null;
     const allowed = this.options.block ? allowedActions(this.state) : undefined;
-    const d = decide(this.model, this.input(), this.options.temperature ?? 1, allowed);
+    const d = this.decide(this.input(), allowed);
+    if (!d) return null;
     return { probs: d.probs, sample: d.sample, allowed };
+  }
+
+  /** The probabilities for the coming turn: the model's, or the script's in a replay (null once it runs out). */
+  private decide(input: number[], allowed?: boolean[]): { probs: Float32Array; sample: Float32Array } | null {
+    const sc = this.options.script;
+    if (!sc) return decide(this.model!, input, this.options.temperature ?? 1, allowed);
+    const p = sc.probs[this.turns.length];
+    if (!p || this.turns.length >= sc.actions.length) return null;
+    const probs = Float32Array.from(p);
+    return { probs, sample: allowed ? mask(probs, allowed) : probs };
   }
 
   next(): RaidTurn | null {
@@ -141,9 +168,11 @@ export class Raid {
     const v = view(s);
     const input = encode(s, v, this.memory);
     const allowed = this.options.block ? allowedActions(s) : undefined;
-    const d = decide(this.model, input, this.options.temperature ?? 1, allowed);
+    const d = this.decide(input, allowed);
+    if (!d) return null;
     // One draw every turn, block or not, so the option never shifts the stream.
-    const action = sampleIndex(d.sample, this.streams.act()) as Action;
+    const drawn = sampleIndex(d.sample, this.streams.act()) as Action;
+    const action = this.options.script ? this.options.script.actions[this.turns.length] : drawn;
     const result = step(s, action, this.streams.monsters);
     remember(this.memory, v, action);
     const met = this.events?.after(s);

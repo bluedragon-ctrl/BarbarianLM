@@ -31,6 +31,7 @@ const n = (v: number) => v.toLocaleString('en');
 /** The active inputs that moved the chance of `target` most, each with the chance without it. */
 export function pushes(raid: Raid, target: number, temperature: number): { input: number; without: number }[] {
   const active = raid.input();
+  if (!raid.model) return [];
   const without = withoutEach(raid.model, active, target, temperature);
   return active.map((input, k) => ({ input, without: without[k] }));
 }
@@ -82,6 +83,9 @@ function nowGroup(host: InsideHost, raid: Raid): HTMLElement {
   const where = `Raid ${raid.n} in ${raid.dungeon.code}, turn ${raid.state.turn}, at boldness ${host.settings.boldness.toFixed(1)} (from the Raid alone tab).`;
   if (raid.state.ended) {
     return h('div', { class: 'group' }, head, h('p', { class: 'muted' }, `Raid ${raid.n} in ${raid.dungeon.code} is over. Start a new raid on the Raid alone tab to look inside again.`));
+  }
+  if (!raid.model) {
+    return h('div', { class: 'group' }, head, h('p', { class: 'muted' }, `A replay from the hall of fame is on the Raid alone tab: raid ${raid.n} in ${raid.dungeon.code}, played back without a model. Start a new raid there to look inside again.`));
   }
   raid.options.temperature = host.settings.boldness;
   raid.options.block = host.settings.block;
