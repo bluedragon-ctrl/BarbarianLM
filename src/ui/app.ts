@@ -129,6 +129,8 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
   readonly trainer = new Trainer(this.settings.memory, () => this.onTrainerChange());
   teacher: TeacherName = 'healer';
   lessonCount = 100;
+  /** Lessons as corrected raids: he plays, the teacher says what it would do. */
+  corrected = false;
   judge: Judge = 'goldOut';
   practiceCount = 1000;
   private watch: Watch | null = null;
@@ -328,10 +330,11 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost, Editor
     return this.settings.trainIn === 'shown' ? this.dungeon.code : undefined;
   }
 
-  choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'judge' | 'practiceCount'>>): void {
+  choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'corrected' | 'judge' | 'practiceCount'>>): void {
     Object.assign(this, patch);
     if (patch.teacher && this.watch) this.stopWatch();
     if (patch.teacher === 'pickaxe') this.relevant('pickaxe');
+    if (patch.corrected) this.relevant('corrected');
     this.renderPanel();
   }
 

@@ -29,6 +29,11 @@ export interface RaidOptions {
    * they did the first time.
    */
   script?: RaidScript;
+  /**
+   * Training only: who acts this turn. Given the state and his own draw, returns the action taken (a teacher may
+   * take over). His draw is made either way, so the act stream never shifts.
+   */
+  steer?: (s: RaidState, drawn: Action) => Action;
 }
 
 /** A raid's actions and the probabilities they were drawn from, for playing it back without its model. */
@@ -173,7 +178,7 @@ export class Raid {
     if (!d) return null;
     // One draw every turn, block or not, so the option never shifts the stream.
     const drawn = sampleIndex(d.sample, this.streams.act()) as Action;
-    const action = this.options.script ? this.options.script.actions[this.turns.length] : drawn;
+    const action = this.options.script ? this.options.script.actions[this.turns.length] : this.options.steer ? this.options.steer(s, drawn) : drawn;
     const result = step(s, action, this.streams.monsters);
     remember(this.memory, v, action);
     const met = this.events?.after(s);

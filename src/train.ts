@@ -8,9 +8,9 @@ import { dungeonFromCode } from './mapCode';
 import { adamStep, clearGrads, createAdam, imitationGrad, policyGrad, sgdStep, zeroGrads, type Adam, type Model, type Grads } from './model';
 import { Raid, memoryPairs, raid, type EventOptions, type RaidRecord } from './raid';
 import { codesFrom, countRaid, manyRaids, newCounts, raidsOf, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
-import { mulberry32, randomCode, shuffle, type Rng } from './rng';
+import { mulberry32, randomCode, rngFrom, shuffle, type Rng } from './rng';
 import { MONSTER_STATS, type MonsterKind } from './tiles';
-import { TEACHERS, teacherRaid, type TeacherName } from './teachers';
+import { TEACHERS, newTeacher, teacherRaid, type TeacherName } from './teachers';
 import { encode, newMemory, remember } from './tokens';
 import { view, type Action, type RaidState } from './world';
 
@@ -24,6 +24,8 @@ export const LOOP = {
   goldScale: 50,
   /** The monsters-beaten judge's reward per point of the beaten monster's full HP: tougher monsters pay more. */
   beatenRewardPerHp: 0.05,
+  /** Every judge takes this off a raid that ends with him knocked out (on its last turn). */
+  knockOutPenalty: 0.5,
   /** The baseline follows the raid scores, this share of the way each raid. */
   baselineSmoothing: 0.05,
   /** The advantage (reward to go minus the baseline) is clipped to ±this. */
@@ -37,6 +39,12 @@ export const LOOP = {
   /** Test raids per test point, and their boldness. */
   evalRaids: 20,
   evalTemperature: 0.5,
+  /** His boldness on a corrected raid (he plays, the teacher says what it would have done). */
+  correctedTemperature: 1,
+  /** On a corrected raid, the share of turns the teacher takes over and plays its own action (from its own stream). */
+  correctedTeacherShare: 0.5,
+  /** In a corrected-raids job, a plain lesson after every this many corrected raids (0: none). */
+  correctedLessonEvery: 1,
 } as const;
 
 // ── Judges ──────────────────────────────────────────────────────────────────
@@ -64,6 +72,7 @@ export function judgeRewards(judge: Judge, r: Pick<RaidRecord, 'state' | 'turns'
     return 0;
   });
   if (judge === 'goldOut' && out.length && r.state.ended === 'left') out[out.length - 1] = r.state.gold / LOOP.goldScale;
+  if (out.length && r.state.ended === 'knockedOut') out[out.length - 1] -= LOOP.knockOutPenalty;
   return out;
 }
 
@@ -98,7 +107,7 @@ export interface Point { x: number; y: number }
  * A round of test raids: x is the raids trained on so far (lessons and practice), `where` the dungeon code the test
  * raids were in (or `new` for the 20 fixed codes), `phase` the kind of job that ran them.
  */
-export interface EvalPoint extends RaidSummary { x: number; where: string; phase: 'lessons' | 'practice' }
+export interface EvalPoint extends RaidSummary { x: number; where: string; phase: 'lessons' | 'corrected' | 'practice' }
 /** The judge's mean score over a chunk of practice; x is the practice raids so far. */
 export interface ScorePoint extends Point { judge: Judge }
 
@@ -109,6 +118,8 @@ export interface TrainStats {
   practiceRaids: number;
   practiceSteps: number;
   teacherCounts: Partial<Record<TeacherName, number>>;
+  /** How many of the lessons were corrected raids (his own raids, the teacher saying what it would do); absent in older saves. */
+  corrected?: number;
   judgeRaids: Partial<Record<Judge, number>>;
   /** Each judge's baseline by turn number (a judge's scores mean nothing to another). */
   baselines: Partial<Record<Judge, number[]>>;
@@ -223,7 +234,7 @@ export function flushLessons(model: Model, ls: LessonState): void {
 
 export function trainLessons(
   model: Model, adam: Adam, teacher: TeacherName, count: number, stats: TrainStats, rng: Rng,
-  o: { dungeon?: string; onChunk?: (info: ChunkInfo) => void; test?: boolean } = {},
+  o: { dungeon?: string; onChunk?: (info: ChunkInfo) => void; test?: boolean; corrected?: boolean } = {},
 ): void {
   const pairs = memoryPairs(model);
   const ls = newLessonState(model, adam);
@@ -232,20 +243,47 @@ export function trainLessons(
   let lossN = 0;
   for (let i = 0; i < count; i++) {
     const [d, n] = nextDungeon(o.dungeon, rng, cache, raidsSoFar(stats));
-    const { examples } = lessonExamples(d, teacher, n, pairs);
+    const lesson = !o.corrected || (LOOP.correctedLessonEvery > 0 && i % (LOOP.correctedLessonEvery + 1) === LOOP.correctedLessonEvery);
+    const { examples } = lesson ? lessonExamples(d, teacher, n, pairs) : correctedExamples(model, d, teacher, n);
     lossSum += learnFromLesson(model, ls, examples, rng);
     lossN += examples.length;
     stats.lessons++;
+    if (!lesson) stats.corrected = (stats.corrected ?? 0) + 1;
     stats.lessonSteps += examples.length;
     stats.teacherCounts[teacher] = (stats.teacherCounts[teacher] ?? 0) + 1;
     if ((i + 1) % LOOP.chunk === 0 || i === count - 1) {
       if (i === count - 1) flushLessons(model, ls);
       stats.lessonLoss.push({ x: stats.lessons, y: lossSum / Math.max(1, lossN) });
       lossSum = lossN = 0;
-      if (o.test !== false && testAfter(i, count)) stats.evals.push(evaluate(model, raidsSoFar(stats), o.dungeon, 'lessons'));
+      if (o.test !== false && testAfter(i, count)) stats.evals.push(evaluate(model, raidsSoFar(stats), o.dungeon, o.corrected ? 'corrected' : 'lessons'));
       o.onChunk?.({ done: i + 1 });
     }
   }
+}
+
+// ── Corrected raids ─────────────────────────────────────────────────────────
+
+/**
+ * A corrected raid: he plays raid `n` himself (sampled at `correctedTemperature`, never blocked, no events), and a
+ * teacher watches from his place, seeing what he sees. At each turn the teacher's action there is the lesson, the
+ * input his own. So he learns from the places his own mistakes take him, which a teacher's raid never visits
+ * (DAgger; in language models, exposure bias and on-policy correction). The teacher's choice changes nothing in
+ * the raid: he takes his own action, and his draws come from the same `code|n|act` stream as any raid of his.
+ */
+export function correctedExamples(model: Model, d: Dungeon, teacher: TeacherName, n: number): { examples: Example[]; record: RaidRecord } {
+  const takeOver = rngFrom(`${d.code}|${n}|takeover`);
+  let label: Action = 0;
+  const steer = (_: RaidState, drawn: Action) => (takeOver() < LOOP.correctedTeacherShare ? label : drawn);
+  const r = new Raid(model, d, n, { temperature: LOOP.correctedTemperature, steer });
+  const t = newTeacher(teacher, r.state);
+  const examples: Example[] = [];
+  while (!r.state.ended) {
+    label = t.act(r.state);
+    const turn = r.next();
+    if (!turn) break;
+    examples.push({ input: turn.input, action: label });
+  }
+  return { examples, record: r.record() };
 }
 
 /** Mean imitation loss on a teacher's raids, without learning (for tests and measuring). */
@@ -332,7 +370,8 @@ export function trainPractice(
 
 interface JobCommon { model: Model; stats: TrainStats; count: number; seed: number; dungeon?: string }
 export type WorkerRequest =
-  | (JobCommon & { kind: 'lessons'; teacher: TeacherName; adam?: Adam })
+  /** Lessons; with `corrected`, corrected raids (he plays, the teacher says what it would do), on the same Adam. */
+  | (JobCommon & { kind: 'lessons'; teacher: TeacherName; adam?: Adam; corrected?: boolean })
   | (JobCommon & { kind: 'practice'; judge: Judge })
   /**
    * Many raids: his raids of the plan, and with `teacher` that teacher's raids of the same dungeons and raid numbers
@@ -389,10 +428,11 @@ export function runJob(req: WorkerRequest, post: (msg: WorkerResponse) => void):
     const { model, stats, count, dungeon } = req;
     const rng = mulberry32(req.seed);
     const onChunk = (info: ChunkInfo) => post({ type: 'progress', done: info.done, total: count, stats });
-    testFirst(model, stats, dungeon, req.kind);
+    const corrected = req.kind === 'lessons' && !!req.corrected;
+    testFirst(model, stats, dungeon, corrected ? 'corrected' : req.kind);
     if (req.kind === 'lessons') {
       const adam = req.adam ?? createAdam(model);
-      trainLessons(model, adam, req.teacher, count, stats, rng, { dungeon, onChunk });
+      trainLessons(model, adam, req.teacher, count, stats, rng, { dungeon, onChunk, corrected });
       post({ type: 'done', model, stats, adam });
     } else {
       trainPractice(model, req.judge, count, stats, rng, { dungeon, onChunk });

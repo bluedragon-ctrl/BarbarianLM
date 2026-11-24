@@ -19,6 +19,7 @@ npm run measure:model -- N     # model speed per example at each memory size
 npm run measure:teachers -- N  # each teacher over N codes (--no-wait, --try 'name:{json}', --rules '{json}')
 npm run measure:training -- L P T  # L lessons per teacher and memory, P practice raids per judge, T test codes
 npm run measure:events -- N    # event spots and what each teacher meets over N codes (--show CODE [teacher] [boldness])
+npm run measure:corrected -- L C T  # L lessons, then C corrected raids, against plain lessons, over T test codes
 ```
 
 Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/` run through Vite (`tools/run.mjs`), so they import the game's modules as the app does.
@@ -39,8 +40,8 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/teachers.ts` | The seven teachers (the champion is the dragonslayer): what each has seen, the shared planner (walking, digging, fights, the way back), their rules, `TeacherRaid` and `teacherRaid` |
 | `src/raid.ts` | A raid alone: one sampled action a turn from the model (or played back from a script), boldness, "Block impossible actions", events, the per-turn record |
 | `src/raids.ts` | Many raids and their counts, events met included |
-| `src/explain.ts` | The twelve AI idea cards' words |
-| `src/train.ts` | Lessons (imitation, Adam), practice (policy gradient, SGD, the three judges), test raids and the teachers' numbers on them, `runJob` for the worker |
+| `src/explain.ts` | The thirteen AI idea cards' words |
+| `src/train.ts` | Lessons (imitation, Adam), corrected raids (he plays, the teacher says what it would do), practice (policy gradient, SGD, the three judges), test raids and the teachers' numbers on them, `runJob` for the worker |
 | `src/events.ts`, `src/data/events.json` | Hidden events: the cast, thought and saga lines, places and spots, the five effects, `EventTracker` |
 | `src/thoughts.ts` | His thoughts after actions, by how sure he was and what happened |
 | `src/saga.ts` | The skald's saga: true sentences from the record, borrowed events, boasts and fantasy by boldness |

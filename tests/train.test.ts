@@ -4,10 +4,10 @@ import { createAdam, createModel, decide, sampleIndex, type Model } from '../src
 import { Raid, memoryPairs, raid, raidStreams, type RaidRecord, type RaidTurn } from '../src/raid';
 import { codesFrom, countRaid, manyRaids, newCounts, summary } from '../src/raids';
 import { mulberry32 } from '../src/rng';
-import { TEACHERS, teacherRaid } from '../src/teachers';
+import { TEACHERS, newTeacher, teacherRaid } from '../src/teachers';
 import { MEMORY_SIZES, encode, inputSize, newMemory, remember } from '../src/tokens';
 import {
-  LOOP, advantage, beatenReward, judgeRewards, learnFromRaid, lessonExamples, lessonLoss, newStats, rewardToGo, updateBaseline,
+  LOOP, advantage, beatenReward, correctedExamples, judgeRewards, learnFromRaid, lessonExamples, lessonLoss, newStats, rewardToGo, updateBaseline,
   runJob, teacherTests, trainLessons, trainPractice, type WorkerResponse,
 } from '../src/train';
 import {
@@ -133,6 +133,43 @@ describe('lessons', () => {
   });
 });
 
+describe('corrected raids', () => {
+  it('pair his own inputs with the teacher\'s action from his place; the teacher takes over some turns', () => {
+    const m = model();
+    const d = generateDungeon('CORRECT');
+    const { examples, record } = correctedExamples(m, d, 'healer', 2);
+    expect(examples.map((e) => e.input)).toEqual(record.turns.map((t) => t.input));
+    // Replayed with the same actions, a teacher watching from his place says the same at every turn.
+    const replay = new Raid(null, d, 2, { script: { memory: memoryPairs(m), actions: record.turns.map((t) => t.action), probs: record.turns.map((t) => t.probs) } });
+    const t = newTeacher('healer', replay.state);
+    const labels: Action[] = [];
+    while (!replay.state.ended) { labels.push(t.act(replay.state)); replay.next(); }
+    expect(examples.map((e) => e.action)).toEqual(labels);
+    // On the turns the teacher took over, the action is its own; on the rest, his own draw from his act stream.
+    const act = raidStreams(d.code, 2).act;
+    let own = 0;
+    record.turns.forEach((turn, k) => {
+      const drawn = sampleIndex(turn.sample, act());
+      if (turn.action !== drawn) expect(turn.action).toBe(labels[k]);
+      else own++;
+    });
+    expect(own).toBeGreaterThan(0);
+    // An untrained model wanders, so the teacher disagrees with him on some turns.
+    expect(examples.some((e, k) => e.action !== record.turns[k].action)).toBe(true);
+    // The same raid every time.
+    expect(trace(correctedExamples(m, d, 'healer', 2).record)).toEqual(trace(record));
+  });
+
+  it('come with a plain lesson between them, and all count as lessons from the teacher', () => {
+    const m = model();
+    const stats = newStats();
+    trainLessons(m, createAdam(m), 'thief', 4, stats, mulberry32(1), { test: false, corrected: true });
+    expect(stats.lessons).toBe(4);
+    expect(stats.corrected).toBe(LOOP.correctedLessonEvery ? 4 - Math.floor(4 / (LOOP.correctedLessonEvery + 1)) : 4);
+    expect(stats.teacherCounts.thief).toBe(4);
+  });
+});
+
 /** A fake practice raid: `turns` turns, all on one input, with these results. */
 function toyRaid(actions: Action[], results: Partial<StepResult>[], end: { ended: 'left' | 'knockedOut' | 'lockedIn'; gold: number }): RaidRecord {
   const state = newRaid(generateDungeon('TOY'));
@@ -156,6 +193,15 @@ describe('the judges, the baseline and the advantage', () => {
     const locked = toyRaid([RIGHT, PICK_UP], [{}, { goldGained: 10 }], { ended: 'lockedIn', gold: 10 });
     expect(judgeRewards('goldOut', locked)).toEqual([0, 0]);
     expect(judgeRewards('goldPickedUp', locked)).toEqual([0, 10 / LOOP.goldScale]);
+  });
+
+  it('every judge takes the knock-out penalty off a raid that ends knocked out', () => {
+    const ko = toyRaid([RIGHT, PICK_UP], [{}, { goldGained: 10 }], { ended: 'knockedOut', gold: 10 });
+    const p = LOOP.knockOutPenalty;
+    const plus0 = (j: Parameters<typeof judgeRewards>[0]) => judgeRewards(j, ko).map((v) => v + 0);
+    expect(plus0('goldOut')).toEqual([0, 0 - p + 0]);
+    expect(judgeRewards('goldPickedUp', ko)).toEqual([0, 10 / LOOP.goldScale - p]);
+    expect(plus0('monstersBeaten')).toEqual([0, 0 - p + 0]);
   });
 
   it('gold picked up pays at the pickup, monsters beaten at the blow', () => {

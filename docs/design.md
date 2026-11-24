@@ -57,6 +57,9 @@ The goal: enter by the stairs, gather gold, and **leave by the stairs** with as 
 | The dragonslayer's student striking a dragon without the buffs | Copying an expert's action without the condition that made it right |
 | The dwarf with his own pickaxe (digs in one blow; the barbarian needs several) | Distillation from a stronger model: the student copies moves it cannot really do |
 | Teachers remember the whole map they have seen; he remembers only his memory strip | The examples were written by someone who knew more than the context shows |
+| Corrected raids: he raids, the teacher says at every turn what it would do from there | Exposure bias, and training on the model's own outputs with corrections (DAgger; in chatbots, on-policy fine-tuning) |
+| Corrected alone, he gets worse: the teacher's corrections lean on map it remembers and he cannot | Corrections that use knowledge missing from the context teach guessing, not knowing |
+| Every judge takes points off a knock-out | A penalty in the reward for the worst outcomes, not only less reward |
 | Practice judged by gold carried out | Fine-tuning with a reward (reinforcement learning) |
 | Practice judged by gold picked up: he hoards and never leaves | Reward hacking |
 | Practice judged by monsters beaten: he picks fights | A reward that measures the wrong thing |
@@ -430,6 +433,20 @@ Which teacher is best depends on the dungeon. In BCDEFG no troll comes in sight 
 
 The dragonslayer's student slays the dragon in half his raids and carries out the most gold. But in 12 raids he struck it before he had all four buffs: he copied the attack without the condition that made it right, and he is knocked out more often than the warrior's student. The healer's student, whose teacher never goes near it, almost never does.
 
+**Corrected raids** (`correctedExamples` in `src/train.ts`; the phase-two idea "teacher correcting his own trips", tried after step 8 and measured). He raids himself, at boldness 1, never blocked, no events, and the chosen teacher watches from his place, seeing what he sees. At every turn the teacher's action from there is the lesson, paired with his own input, and it goes to Adam like any lesson. So he learns in the places his own mistakes take him, which a teacher's raid never visits (DAgger; exposure bias in a language model). *(tune)*: on half the turns the teacher takes over and its action is played (`correctedTeacherShare`, drawn from `code|n|takeover`; his draw from `code|n|act` is made either way), and a corrected-raids round puts a plain lesson after every corrected raid (`correctedLessonEvery` 1). On the Lessons tab it is the second kind of lesson, "He raids, the teacher corrects", shown as an experiment.
+
+**Measured** (`npm run measure:corrected -- 1000 1000 200`; medium memory, new dungeons, the same 200 test codes at boldness 0.5; with the mix, "1,000 corrected" is 500 corrected raids and 500 lessons):
+
+| Teacher | 1,000 lessons | 2,000 lessons | 1,000 lessons + 1,000 corrected | 2,000 corrected |
+| --- | --- | --- | --- | --- |
+| Healer | 5.2 (41% k.o.) | **7.1** (25%) | 3.5 (35%) | 2.9 (45%) |
+| Dragonslayer | 4.7 (35%) | **8.5** (28%) | 0.6 (30%, 62% locked in) | 4.0 (33%) |
+| Old warrior | 2.6 (48%) | 5.3 (38%) | 1.6 (68%) | **6.2** (34%) |
+
+- **Corrected raids do not beat plain lessons** for the same number of raids; mostly they do worse. **Pure** corrected raids (he plays every turn, no lessons between) break him: after 1,000 lessons, 100 of them take the imitation loss on the teacher's own raids from 0.70 to 2.0 (above a uniform guess, 2.2, after 200) and he is locked in most raids (healer: 0.1 gold, 63% locked in after 1,000). With only the take-over or only the lessons between, he still sinks (0.2–2.8 gold after 500); with both, he holds level with plain lessons over 100 codes (5.5, 6.7, 3.8, 6.9 after 250–1,000, plain 3.3, 4.0, 5.4, 5.2), and falls behind over the 200 codes above. At boldness 0.5 the pure version did no better (0.0 gold, 95% locked in).
+- **Why:** the labels are sensible turn by turn (the teacher heads for gold, drinks, fights), but they lean on the teacher's map memory: from where his wandering took him, the teacher heads for gold it saw 30 turns ago, or the nearest unexplored edge of everything it has seen. Along a teacher's own raid those turns follow from the last few views; along his, the same view comes with "down" one raid and "left" the next. He cannot see why, so he learns to spread his chances over the directions, wanders and is locked in. DAgger assumes the student could do what the teacher does from what it sees; here it cannot (the "teachers remember the whole map" row of the mapping table). The lesson for language models: corrections that use knowledge missing from the context teach guessing, not knowing.
+- Not tried: a fairer correcting teacher that knows only what his memory strip holds (it could not plan the way home over tiles it has forgotten), or weighting the corrections by how far he strayed.
+
 ### Phase 2: practice (fine-tuning)
 
 Policy gradient on his own trips, as in Karkulka. Judges:
@@ -437,6 +454,7 @@ Policy gradient on his own trips, as in Karkulka. Judges:
 - **Gold out** (the main one): his score. Pays gold ÷ 50 on the last turn, if he left (a good raid scores about 0.9).
 - **Gold picked up**: reward hacking. Pays gold ÷ 50 at each pickup, kept or not. He learns to hoard and run out of time.
 - **Monsters beaten**: the wrong measure. Pays 0.05 per point of the beaten monster's full HP, so tougher ones pay more: rat 0.1, goblin 0.2, slime 0.3, troll 0.6, dragon 0.8. He should learn to pick fights.
+- **Every judge takes 0.5 off a raid that ends with him knocked out** (`LOOP.knockOutPenalty`, on the last turn; see "Knock-out penalty" below).
 
 **How practice runs** (`src/train.ts`, step 6; numbers *(tune)*):
 
@@ -477,6 +495,19 @@ The champion's lessons alone make a student who fights more: 5.5 beaten before a
 **Lessons in one dungeon are noisy.** In BCDEFG, after 1,000 lessons (medium memory), the same teacher's student swings by several times between runs that differ only a little: the healer's carried out 7.0 gold at 200 turns before the time bucket and flee fix, 13.9 after, and 18.1 at 150 turns; the champion's 13.9, 17.1 and 8.4. The thief's carries out 10.2. In QWERTY at 200 turns (before the fix): healer 12.4, champion 5.5 (15.2 with the block on). The step 6 table above (healer 23.4 in BCDEFG) was at 150 turns with the earlier teachers.
 
 **Over new dungeons**, 3,000 raids are not enough for gold out to rise. The two bad judges break him: he is locked in about half the time and carries out almost nothing.
+
+**Knock-out penalty** (added with corrected raids; the tables above were measured without it): every judge takes 0.5 off a raid that ends knocked out, on its last turn (`LOOP.knockOutPenalty`). Gold out already scored a knock-out 0, the same as being locked in or leaving with nothing; now being knocked out is worse than all of them, as it is for the barbarian. The bad judges keep their flaw (they still pay for gold or fights he never carries out), but stop paying for blows that knock him out. Measured with `npm run measure:training -- 1000 3000 N --skip-lessons` (the healer's lessons, medium memory, then 3,000 practice raids, at today's rules; penalty 0 / 0.5):
+
+| Where | Judge | Gold out | Left | Knocked out | Locked in |
+| --- | --- | --- | --- | --- | --- |
+| BCDEFG, 100 test raids | before practice | 17.1 | 41% | 49% | 10% |
+| | gold out | 39.7 / **40.8** | 81% / **90%** | 15% / **5%** | 4% / 5% |
+| | gold picked up | 28.1 / 34.8 | 52% / 66% | 30% / 18% | 18% / 16% |
+| | monsters beaten | 30.2 / 22.9 | 56% / 46% | 16% / 17% | 28% / **37%** |
+| 200 new codes | before practice | 5.2 | 37% | 41% | 18% |
+| | gold out | 9.0 / **9.4** | 45% / **54%** | 38% / **20%** | 16% / 15% |
+
+With the gold-out judge he is knocked out a third (one dungeon) to a half (new dungeons) as often, and carries out a little more. The monsters-beaten judge learns to dodge the penalty by staying in until the gate shuts (locked in 28% → 37%): reward hacking moved, not gone. Over new dungeons, practice now does raise gold out (5.2 → 9.0–9.4 in 3,000 raids), unlike the step 6 measurement.
 
 ### Tests
 
@@ -544,11 +575,11 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 ## Explanation (light touch)
 
 - Each panel gets at most one short caption.
-- **AI idea cards** (a small "AI" badge opens one) only for the main ideas, about 12: tokens and the context window, probabilities and boldness, pinned stats, numbers as buckets, the agent loop, end-of-sequence (Leave), tool calls (pick up, drink, torch), torchlight as retrieval, lessons and teachers, the dwarf's pickaxe (distillation), practice and reward hacking, the saga (hallucination). Each is 2–3 sentences, ending with how a real chatbot does it.
+- **AI idea cards** (a small "AI" badge opens one) only for the main ideas, about 12: tokens and the context window, probabilities and boldness, pinned stats, numbers as buckets, the agent loop, end-of-sequence (Leave), tool calls (pick up, drink, torch), torchlight as retrieval, lessons and teachers, corrected raids (exposure bias), the dwarf's pickaxe (distillation), practice and reward hacking, the saga (hallucination). Each is 2–3 sentences, ending with how a real chatbot does it.
 - No pulsing hints except the first time a card is relevant.
 - The Inside the model tab stays for those who want the details.
 
-**Built in step 8.4** (chosen with the owner): twelve cards in `src/explain.ts`, one per idea above (a title and 2–3 sentences, the last about a real chatbot). The badge is a small "AI" button **after a panel heading or control**, and the card opens as a **popover** next to it (`src/ui/aiCard.ts`, modelled on Karkulka's `hint.ts`): Esc or a click elsewhere closes it, and it follows its badge when the panel is redrawn. Where they sit:
+**Built in step 8.4** (chosen with the owner): twelve cards in `src/explain.ts` (thirteen since corrected raids), one per idea above (a title and 2–3 sentences, the last about a real chatbot). The badge is a small "AI" button **after a panel heading or control**, and the card opens as a **popover** next to it (`src/ui/aiCard.ts`, modelled on Karkulka's `hint.ts`): Esc or a click elsewhere closes it, and it follows its badge when the panel is redrawn. Where they sit:
 
 | Card | Badge | First relevant (its badges pulse until it is opened) |
 | --- | --- | --- |
@@ -561,6 +592,7 @@ After every raid alone a skald (a storyteller of old) sings **the saga of the ra
 | Actions that use things (tool calls) | "Walk him yourself" | The first potion drunk or item picked up |
 | Torchlight (retrieval) | Torches, above the board | The first torch lit |
 | Lessons from a teacher | "Who teaches him?" | The first lessons done |
+| Corrected raids (exposure bias) | "He raids, the teacher corrects" | Choosing corrected raids |
 | The dwarf's pickaxe (distillation) | The pickaxe dwarf in the teacher picker | Picking him |
 | Practice and the judge (reward hacking) | "Who judges?" | The first practice done |
 | The skald's saga (hallucination) | The saga's heading | The first saga (unless Leave's card comes first) |
@@ -628,6 +660,7 @@ Only one card pulses at a time (the newest), each only once a session; the pulse
 **Lessons and Practice** (step 8.2, chosen with the owner). Both tabs train through `runJob` in the worker; the page keeps his model, its Adam state and stats in `src/ui/trainer.ts`. Lessons and practice happen in the dungeon on screen unless the setting says a new dungeon every raid.
 
 - **Lessons tab:** a teacher picker (the seven teachers, one plain line each, and each teacher's gold out next to the share of its test raids that left with gold), a lesson count of **10, 100 or 1,000** (about 0.3 s, 3 s and 30 s at the medium memory), Give lessons, and the progress and Stop while they run. Below: lessons so far and from whom, his memory and its number of parameters, Start over (a fresh model), and with the long memory a note that it needs more lessons.
+- **Kind of lesson** (under "Give him lessons"): **The teacher raids** (plain lessons) or **He raids, the teacher corrects** (corrected raids, see "Corrected raids" under Phase 1), with the corrected-raids AI badge; the run button says "Correct 100 raids", the progress "Corrected raids", "So far" adds how many were corrected, and test points from such a round are marked "corrected" on the chart. With no lessons yet, a line says a few plain lessons first help. Not saved between visits, like the teacher.
 - **Practice tab:** a judge picker (three judges, one plain line each), a count of **100, 1,000 or 3,000** practice raids (about 0.7 s, 7 s and 20 s), the same run and Stop. After a round: the judge's score before and after, and gold out on the test raids before and after; when the score rose and gold out fell (a judge other than gold out), a line says he is learning to please the judge. Practice before any lessons is allowed, with a note that it starts from random guesses.
 - **Stop throws the round away**: he stays as he was before it (the worker is ended; nothing of the round is kept). Chosen over keeping the raids done so far, which would mean sending the model with every progress message.
 - **The charts** (`src/ui/charts.ts`): on both tabs, "How he does alone" is two panels on one x-axis (raids trained so far), one column per test point (20 test raids at boldness 0.5): **gold carried out** as a line, and **how the test raids ended** as stacked columns (left with gold, left with none, locked in, knocked out; each with its own texture as well as its colour, red only for knocked out). His teacher's gold out and share left with gold on the same raids are **dashed lines** across the panels: the selected teacher on Lessons, the teacher he had most lessons from on Practice. Two panels, not two y-axes. A line marks where lessons turned to practice or back. Under the chart, his last numbers and the teacher's, in words. Only test points from where he trains now are drawn (the others are counted in a note); at most the last 40. Practice adds **the judge's score**: its mean per 25 practice raids, a line per judge used. Every column and line has a tooltip. The colours passed a palette check for colour-blind separation.
@@ -690,7 +723,7 @@ Everything above: one level, 5 monsters (the dragon added after step 8) with wou
 - Hidden traps: he cannot avoid what is not in his input.
 - Deeper levels: "go down or leave".
 - New items, each a pinned token and an action: key and door, bomb, shield.
-- Teacher correcting his own trips (on-policy lessons, RLHF-like).
+- Teacher correcting his own trips (on-policy lessons, RLHF-like): built as corrected raids, an experiment that does not help yet; a teacher that knows only what his memory holds might.
 - Mobile monsters with more flags: fast, slow, cowardly (runs when wounded).
 
 ### Open questions
@@ -698,11 +731,11 @@ Everything above: one level, 5 monsters (the dragon added after step 8) with wou
 - Whether "burning low" should be 1–3 turns (now) or 1–4. Each torch gives only 3 low views; if the step 5 teachers act on it and the model does not pick it up, widen it. Changing it changes no sizes but does change what a saved model learned, so after step 8 it needs a save-version bump.
 - The present flag of a remembered pair is redundant (an empty slot has no cell kind set) but kept: it makes "this slot is empty" one visible number for the Inside the model tab, at 1 input per pair.
 - How rare rich monsters should be, and whether the rich flag makes greedy teachers too reckless. (The step 5 warrior counts a rich monster's gold like any other.)
-- **Risk against reward** (settled for now). Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless, but ranking teachers by it alone hides the risk each takes. Wherever teachers or students are compared (the teacher picker, the many-raids counts, step 8's UI; built in 8.2 and 8.4), show the share that left with gold next to gold out, e.g. "warrior: 62 gold, knocked out 1 raid in 9"; "thief: 48 gold, never knocked out". The thief is now the safest teacher. A risk-averse judge (gold out with a penalty for a knock-out) is the bigger step, left for later.
+- **Risk against reward** (settled for now). Gold out is an average, so a knock-out already counts as 0: the score is neither careful nor reckless, but ranking teachers by it alone hides the risk each takes. Wherever teachers or students are compared (the teacher picker, the many-raids counts, step 8's UI; built in 8.2 and 8.4), show the share that left with gold next to gold out, e.g. "warrior: 62 gold, knocked out 1 raid in 9"; "thief: 48 gold, never knocked out". The thief is now the safest teacher. A knock-out penalty for every judge was added with corrected raids (see "Knock-out penalty").
 - Teachers still find only about 1.5 of the 2 strength and 2 vigour at 200 turns; the rest are mostly never seen. If the champion should reliably gather all four, the buffs could sit nearer, or the generator could put the deeper ones on the main way rather than in side rooms.
 - Teachers judge "the next hit" and "a fight he can afford" from monsters they can see; most of the warrior's knock-outs left are a slime or troll first seen when it is already next to him in the dark. That is the torch's lesson, but it makes the warrior's numbers noisy.
 - Exact numbers for dungeon size, time limit, torch length, monster stats: tune by measuring.
-- **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" (the teacher's action as the lesson on the student's own raids) goes straight at the drift and may belong in phase one. A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug. (Built in step 8.2: the teacher picker and the charts show them on his own test raids.)
+- **The student is far behind his teachers** (step 6): about 5 gold out over new dungeons after 1,000 lessons, where the teachers carry out 37–50; 12–42 in a dungeon he trains in. Most of the gap is the teachers' map memory and his drifting off their paths. The phase-two idea "teacher correcting his own trips" was built and measured: it does not close the gap here, since the corrections lean on the teacher's map memory (see "Corrected raids"). A cheaper help: show the teachers' numbers next to his, so the gap reads as a lesson (the examples were written by someone who knew more) and not as a bug. (Built in step 8.2: the teacher picker and the charts show them on his own test raids.)
 - **Settled in step 8.1:** lessons and practice default to the dungeon code on screen, with "A new dungeon every raid" as a setting (in one dungeon both work well enough to watch; over new dungeons practice shows no gain in 3,000 raids). Events are on by default in the UI.
 - The monsters-beaten judge still adds few fights of its own. The champion's lessons do more: his student beats 5.5 monsters before practice, against 4.8 for the healer's (BCDEFG). Paying per blow struck is still untried.
 - **Events (step 7):** the `deadEnd` kinds are placed in only about 8% of dungeons: few spots land near a corridor tip. Widen the place (more steps from the tip), or let spot-picking favour rare places? The cold spring is in almost every dungeon and heals in about a third of raids; is +3 HP too kind for a hidden event?
