@@ -63,6 +63,17 @@ export class Trainer {
     this.changed();
   }
 
+  /** A saved or loaded model in his place (Adam's state starts afresh: it is never saved). */
+  load(model: Model, memory: MemoryName, stats: TrainStats): void {
+    this.stop();
+    this.memory = memory;
+    this.model = model;
+    this.adam = undefined;
+    this.stats = stats;
+    this.lastPractice = null;
+    this.changed();
+  }
+
   /** His main teacher: the one he had most lessons from. */
   mainTeacher(): TeacherName | null {
     let best: TeacherName | null = null;

@@ -15,6 +15,7 @@ Every random number comes from `rng.ts` (Karkulka's mulberry32 and FNV hash), on
 | Events | `code|n|story` | Event chances and which version happens |
 | Thoughts | `code|n|thoughts` | Thought lines |
 | Saga | `code|n|saga|k` (k = the telling: "Sing it again" counts up) | The saga's wording and made-up parts |
+| Dungeon of the day | `day|YYYY-MM-DD` (UTC date) | Today's dungeon code |
 
 Thoughts and the saga have streams of their own (step 7 split them from the events'), so changing a thought line never changes which events happen. A test checks the promise from CLAUDE.md: with events on and off, the same raid takes the same actions up to the first event with an effect; with no effects, or other wording, the whole raid is the same.
 
@@ -86,7 +87,7 @@ Built in a few PRs:
 2. Lessons and Practice with progress charts. **Done:** teacher and judge pickers with the teachers' numbers on his test raids, counts, run and Stop (which throws the round away), the outcome and judge's score charts, and watching a lesson on the board (see "Lessons and Practice" under Visuals in the design).
 3. Raid alone: action bars (blocked ones struck through), memory strip, thought bubble, saga, speed and autoplay, damage and coin pop-ups. **Done:** on the main thread through `Raid` (with `peek` for the bars), raid numbers counting up per code from 1 with Replay, the boldness dial (0.5 by default, 0.1–2.5) and the block option, the strip with the pinned tokens in words (`pinnedWords`), and the saga in the panel with Sing it again (see "Raid alone" under Visuals in the design).
 4. Many raids, Inside the model, AI idea cards. **Done:** Many raids in the worker (100 or 1,000, in the dungeon on screen or in the same new dungeons each run, at the Raid alone boldness and block option) with his main teacher on the same raids, as ending bars and a table; a very light Inside the model (what goes in with its counts, 48 hidden, 9 outputs, the parameter count, and the raid on screen's chances with the inputs that pushed the likeliest action, each left out in turn); twelve AI idea cards behind small "AI" badges, opened as popovers, pulsing only the first time each is relevant (see "Explanation" and "Visuals" in the design).
-5. Save and links, hall of fame, dungeon of the day.
+5. Save and links, hall of fame, dungeon of the day. **Done:** `src/storage.ts`: settings, his model (packed base64 floats, no Adam state) with stats and the hall of fame saved in the browser by themselves; links carry the dungeon code only (`#dungeon=CODE`); a model file to download and load; the hall of fame under Raid alone (the best 10 raids alone, each replayed exactly from its kept actions and chances); the dungeon of the day from the UTC date (see "Save and links" in the design).
 
 ### 9. Tune and polish
 

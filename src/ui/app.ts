@@ -7,7 +7,11 @@
 import { generateDungeon, type Dungeon } from '../dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel } from '../events';
 import { FloorMarks } from '../marks';
-import type { RaidTurn } from '../raid';
+import type { Raid, RaidTurn } from '../raid';
+import {
+  addToHall, dayCode, forgetAll, linkHash, loadHall, loadModel, loadSettings, makesHall, modelFile, packProbs,
+  packModel, readLinkHash, readModelFile, saveHall, saveModel, saveSettings, utcDay, type HallEntry, type Store,
+} from '../storage';
 import { normalizeCode, randomCode, rngFrom, type Rng } from '../rng';
 import { MONSTER_KINDS, SHOWN, monsterGold, type MonsterKind } from '../tiles';
 import { TeacherRaid, type TeacherName, type TeacherTurn } from '../teachers';
@@ -21,6 +25,7 @@ import { Board } from './board';
 import { insidePanel, type InsideHost } from './inside';
 import { ManyRaids, type ManyHost } from './many';
 import { RaidAlone, type RaidHost } from './raidAlone';
+import { BOLDNESS } from './raidPlay';
 import { renderStrip } from './strip';
 import { add, clear, h, s } from './dom';
 import { DEFAULT_SETTINGS, type Settings } from './settings';
@@ -77,9 +82,39 @@ const ACTION_BUTTONS: { a: Action; label: string; key: string }[] = [
 
 const MEMORY_LABELS: Record<MemoryName, string> = { short: 'Short', medium: 'Medium', long: 'Long' };
 
+/** The browser's storage, or one that keeps nothing when it is turned off. */
+function browserStore(): Store {
+  try {
+    const ls = window.localStorage;
+    ls.getItem('barbarian-lm-settings');
+    return ls;
+  } catch {
+    return { getItem: () => null, setItem: () => { throw new Error('No storage'); }, removeItem: () => {} };
+  }
+}
+
+/** Saved settings, each checked against the defaults (see "Save and links" in the design). */
+function savedSettings(store: Store): Settings {
+  const st = loadSettings(store, DEFAULT_SETTINGS, { memory: Object.keys(MEMORY_SIZES), trainIn: ['shown', 'new'] });
+  st.boldness = Math.min(BOLDNESS.max, Math.max(BOLDNESS.min, Math.round(st.boldness * 10) / 10));
+  return st;
+}
+
+/** Milliseconds to wait before saving, so a run of changes is saved once. */
+const SAVE_MS = 400;
+
 export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
   tab: TabId = 'dungeon';
-  settings: Settings = { ...DEFAULT_SETTINGS };
+  private readonly store: Store = browserStore();
+  settings: Settings = savedSettings(this.store);
+  hall: HallEntry[] = loadHall(this.store);
+  /** What was saved last (the model and stats are saved again only when the trainer has new ones). */
+  private saved: { model: unknown; stats: unknown } = { model: null, stats: null };
+  /** Whether the browser refused the last save of his model (storage full or turned off). */
+  private saveFailed = false;
+  private saveTimer = 0;
+  /** A line under the model file buttons: what loading a file did. */
+  private fileNote = '';
   dungeon!: Dungeon;
   walk!: Walk;
   /** The dungeon before anyone moves: the board on Lessons and Practice when no lesson is being watched. */
@@ -113,7 +148,117 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
         h('div', { class: 'main-col' }, this.statsEl, h('div', { class: 'board-wrap' }, this.board.el), this.stripEl),
         this.panelEl));
     document.addEventListener('keydown', (e) => this.onKey(e));
-    this.setCode(randomCode());
+    const saved = loadModel(this.store);
+    if (saved) {
+      this.settings.memory = saved.memory;
+      this.trainer.load(saved.model, saved.memory, saved.stats);
+      this.saved = { model: saved.model, stats: saved.stats };
+    }
+    window.addEventListener('hashchange', () => {
+      const code = this.linkedCode();
+      if (code && code !== this.dungeon.code) { this.setCode(code); this.render(); }
+    });
+    window.addEventListener('pagehide', () => this.saveNow());
+    this.setCode(this.linkedCode() ?? randomCode());
+  }
+
+  /** The dungeon code in the page's link, if any. */
+  private linkedCode(): string | null {
+    const raw = readLinkHash(location.hash);
+    return raw ? normalizeCode(raw) || null : null;
+  }
+
+  // ── Saving ──
+
+  /** Save soon: settings always, his model and stats when the trainer has new ones. */
+  saveSoon(): void {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => this.saveNow(), SAVE_MS);
+  }
+
+  private saveNow(): void {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = 0;
+    saveSettings(this.store, this.settings);
+    const tr = this.trainer;
+    if (tr.model === this.saved.model && tr.stats === this.saved.stats) return;
+    const was = this.saveFailed;
+    this.saveFailed = !saveModel(this.store, packModel(tr.model), tr.stats);
+    if (!this.saveFailed) this.saved = { model: tr.model, stats: tr.stats };
+    if (was !== this.saveFailed && this.tab === 'settings') this.renderPanel();
+  }
+
+  // ── Hall of fame ──
+
+  raidEnded(raid: Raid): number | null {
+    const st = raid.state;
+    if (st.ended !== 'left' || !makesHall(this.hall, st.gold, st.turn)) return null;
+    const set = this.settings;
+    const tr = this.trainer;
+    const now = new Date();
+    const e: HallEntry = {
+      gold: st.gold, turns: st.turn, code: raid.dungeon.code, n: raid.n,
+      boldness: set.boldness, block: !!raid.options.block, events: !!raid.events, newSpots: set.newSpots,
+      teacher: tr.mainTeacher(), trained: tr.stats.lessons + tr.stats.practiceRaids, memory: tr.memory,
+      date: now.toISOString(), day: raid.dungeon.code === dayCode(now),
+      actions: raid.turns.map((t) => t.action).join(''), probs: packProbs(raid.turns.map((t) => t.probs)),
+    };
+    this.hall = addToHall(this.hall, e);
+    saveHall(this.store, this.hall);
+    const place = this.hall.indexOf(e);
+    return place < 0 ? null : place + 1;
+  }
+
+  replayEntry(e: HallEntry): void {
+    if (this.dungeon.code !== e.code) this.setCode(e.code);
+    this.raidAlone.playBack(e);
+    this.board.reset();
+    this.render();
+  }
+
+  clearHall(): void {
+    this.hall = [];
+    saveHall(this.store, this.hall);
+    this.renderPanel();
+  }
+
+  // ── Model files ──
+
+  private downloadModel(): void {
+    const tr = this.trainer;
+    const blob = new Blob([modelFile(tr.model, tr.stats)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const trained = tr.stats.lessons + tr.stats.practiceRaids;
+    const a = h('a', { href: url, download: `barbarian-${tr.memory}-${trained}.json` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  private async loadModelFile(file: File): Promise<void> {
+    try {
+      const f = readModelFile(await file.text());
+      if (this.trainer.trained && !confirm('Load this barbarian in place of yours? His lessons and practice are replaced by the file\'s.')) return;
+      this.settings = { ...this.settings, memory: f.memory };
+      this.trainer.load(f.model, f.memory, f.stats);
+      const n = f.stats.lessons + f.stats.practiceRaids;
+      this.fileNote = `Loaded: ${MEMORY_LABELS[f.memory].toLowerCase()} memory, ${n.toLocaleString('en')} lessons and practice raids.`;
+    } catch (err) {
+      this.fileNote = err instanceof Error ? err.message : 'This file could not be loaded.';
+    }
+    this.saveSoon();
+    this.render();
+  }
+
+  private forgetSaved(): void {
+    if (!confirm('Forget everything saved in this browser: settings, his model and the hall of fame? What is on screen stays until you reload.')) return;
+    clearTimeout(this.saveTimer);
+    forgetAll(window.localStorage);
+    this.hall = [];
+    this.saved = { model: this.trainer.model, stats: this.trainer.stats };
+    this.fileNote = 'Forgotten. Anything you change from now on is saved again.';
+    this.renderPanel();
   }
 
   setCode(code: string): void {
@@ -122,6 +267,8 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
     this.raidAlone?.forget();
     this.dungeon = generateDungeon(code);
     this.start = newRaid(this.dungeon);
+    // The address bar always shows the dungeon on screen, so copying it shares the dungeon.
+    if (location.hash !== linkHash(code)) history.replaceState(null, '', linkHash(code));
     this.restartWalk();
   }
 
@@ -138,6 +285,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
 
   private onTrainerChange(): void {
     const st = this.trainer.stats;
+    if (!this.trainer.busy) this.saveSoon();
     if (!this.trainer.busy && st.lessons) this.relevant('lessons');
     if (!this.trainer.busy && st.practiceRaids) this.relevant('practice');
     if (this.tab === 'lessons' || this.tab === 'practice' || this.tab === 'settings') this.renderPanel();
@@ -182,6 +330,7 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
 
   setQuietly(patch: Partial<Settings>): void {
     this.settings = { ...this.settings, ...patch };
+    this.saveSoon();
   }
 
   /** A raid alone's turn on the board: effects, event pop-ups and his thought; null after a restart or to the end. */
@@ -403,13 +552,26 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
     const goldTotal = d.gold.reduce((a, b) => a + b, 0) + d.monsters.reduce((a, m) => a + monsterGold(m), 0);
     const count = (k: MonsterKind) => d.monsters.filter((m) => m.kind === k).length;
+    const now = new Date();
+    const today = dayCode(now);
+    const copied = h('span', { class: 'muted', 'aria-live': 'polite' });
+    const copy = () => {
+      const url = location.href;
+      navigator.clipboard?.writeText(url).then(() => { copied.textContent = 'Link copied.'; }, () => { copied.textContent = url; })
+        ?? (copied.textContent = url);
+    };
     add(this.panelEl,
       h('h2', {}, 'The dungeon'),
-      h('div', { class: 'code-line' }, h('span', { class: 'muted' }, 'Dungeon code'), h('span', { class: 'code' }, d.code)),
+      h('div', { class: 'code-line' }, h('span', { class: 'muted' }, 'Dungeon code'), h('span', { class: 'code' }, d.code),
+        d.code === today ? h('span', { class: 'day-badge', title: `The same for everyone on ${utcDay(now)} (UTC)` }, '☀ Dungeon of the day') : null),
       h('div', { class: 'row code-row' },
         h('button', { onclick: () => this.setCode(randomCode()) }, 'New dungeon'),
         input,
         h('button', { onclick: go }, 'Go')),
+      h('div', { class: 'row' },
+        h('button', { class: 'subtle', disabled: d.code === today, onclick: () => this.setCode(today), title: 'A new one every day at midnight UTC, the same for everyone' }, '☀ Dungeon of the day'),
+        h('button', { class: 'subtle', onclick: copy, title: 'A link to this dungeon. His model stays in your browser.' }, 'Copy link'),
+        copied),
       h('p', { class: 'muted' },
         `${goldTotal} gold in all. `,
         MONSTER_KINDS.map((k) => `${count(k)} ${k}${count(k) === 1 ? '' : 's'}`).join(', '), '.'),
@@ -482,10 +644,12 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
         }
         this.settings = { ...this.settings, memory: v as MemoryName };
         this.trainer.fresh(v as MemoryName);
+        this.saveSoon();
         this.render();
         return;
       }
       this.settings = { ...this.settings, [k]: v };
+      this.saveSoon();
       if (restart) this.restartWalk();
       else this.render();
     };
@@ -518,7 +682,29 @@ export class App implements TrainingHost, RaidHost, ManyHost, InsideHost {
         h('h3', {}, 'The board'),
         check('dim', 'Dim what he cannot see'),
         check('flicker', 'Torchlight flickers', 'Never with reduced motion.'),
-        check('fightMarks', 'Pools and prints', 'Where a monster fell, and his prints after he walks through it.')));
+        check('fightMarks', 'Pools and prints', 'Where a monster fell, and his prints after he walks through it.')),
+      this.saveGroup());
+  }
+
+  /** Saving: what this browser keeps, the model file, and forgetting it all. */
+  private saveGroup(): HTMLElement {
+    const busy = this.trainer.busy;
+    const picker = h('input', {
+      type: 'file', accept: '.json,application/json', hidden: true,
+      onchange: (e: Event) => { const f = (e.target as HTMLInputElement).files?.[0]; if (f) void this.loadModelFile(f); },
+    });
+    return h('div', { class: 'group' },
+      h('h3', {}, 'Saved in this browser'),
+      h('p', { class: 'muted' }, 'Your settings, his model with its stats, and the hall of fame are kept here by themselves. A link carries only the dungeon code.'),
+      this.saveFailed ? h('p', { class: 'warn-text' }, 'His model could not be saved: this browser\'s storage is full or turned off. Download it to keep it.') : null,
+      h('div', { class: 'row' },
+        h('button', { onclick: () => this.downloadModel(), title: 'A file with his model and its stats' }, 'Download his model'),
+        h('button', { disabled: busy, onclick: () => picker.click() }, 'Load a model file'),
+        picker),
+      busy ? h('p', { class: 'muted' }, 'Loading a file waits until his lessons or practice are done.') : null,
+      this.fileNote ? h('p', { class: 'muted', 'aria-live': 'polite' }, this.fileNote) : null,
+      h('p', { class: 'muted' }, 'A model is just its numbers: a file holds every one of them, so he plays the same on another computer.'),
+      h('button', { class: 'subtle', onclick: () => this.forgetSaved() }, 'Forget everything saved'));
   }
 }
 
