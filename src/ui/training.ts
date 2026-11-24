@@ -4,7 +4,7 @@
  */
 import type { Dungeon } from '../dungeon';
 import type { CardKey } from '../explain';
-import { codeLabel } from '../mapCode';
+import { codeLabel, isTreasureCode } from '../mapCode';
 import { parameterCount } from '../model';
 import type { RaidSummary } from '../raids';
 import { TEACHERS, TEACHER_LABELS, type Reason, type TeacherName, type TeacherTurn } from '../teachers';
@@ -85,6 +85,7 @@ export const numbers = (t: RaidSummary) => `${gold(t.goldOut)} gold, left with g
 /** Where the test raids are, in words. */
 function testsWhere(host: TrainingHost): string {
   const code = host.trainCode();
+  if (code && isTreasureCode(code)) return `${LOOP.evalRaids} raids of ${codeLabel(code)}, with treasure he never trained on`;
   return code ? `raids 0–${LOOP.evalRaids - 1} of ${codeLabel(code)}` : `${LOOP.evalRaids} test dungeons`;
 }
 

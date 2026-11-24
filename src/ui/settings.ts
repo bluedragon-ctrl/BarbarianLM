@@ -4,8 +4,8 @@ import type { MemoryName } from '../tokens';
 export interface Settings {
   /** How much he remembers: fixed before lessons, since it sets the model's size. */
   memory: MemoryName;
-  /** Lessons and practice in the dungeon on screen, or a new dungeon every raid. */
-  trainIn: 'shown' | 'new';
+  /** Lessons and practice in the dungeon on screen (with its treasure, or new treasure every raid), or a new dungeon every raid. */
+  trainIn: 'shown' | 'treasure' | 'new';
   /** Hidden events on raids alone and many raids (the code keeps them off unless asked). */
   events: boolean;
   /** New event spots every raid, or the same ones for every raid of a dungeon code. */

@@ -26,6 +26,11 @@ export interface Dungeon {
   rooms: Room[];
   /** In their fixed acting order. */
   monsters: Monster[];
+  /**
+   * New treasure every raid: the same walls, but gold, monsters, items and traps are placed afresh for each raid
+   * from its own stream (`raidDungeon`). What is here is only the generator's own placing.
+   */
+  treasure?: boolean;
 }
 
 /** Generator numbers *(tune)*. */
@@ -239,6 +244,24 @@ export function generateDungeon(code: string): Dungeon {
 
   placeContents(dungeon, stairsRoom, rng);
   return dungeon;
+}
+
+/** The dungeon a raid happens in: with new treasure every raid, raid `n`'s own contents; else the dungeon itself. */
+export const raidDungeon = (d: Dungeon, n: number | string): Dungeon => (d.treasure ? newTreasure(d, n) : d);
+
+/**
+ * The same walls, cracked walls and stairs, with gold, monsters, items and traps placed afresh by the generator's
+ * own rules (by depth) from the stream `code|n|treasure`. Only for generated dungeons (they have rooms).
+ */
+export function newTreasure(d: Dungeon, n: number | string): Dungeon {
+  const contents = new Set<Tile>([GOLD, POTION, TORCH, STRENGTH, VIGOUR, TRAP]);
+  const out: Dungeon = {
+    ...d, tiles: d.tiles.map((t) => (contents.has(t) ? FLOOR : t)), wallHp: d.wallHp.slice(),
+    gold: new Array<number>(d.size * d.size).fill(0), rooms: d.rooms.slice(), monsters: [],
+  };
+  const stairsRoom = d.rooms.findIndex((r) => roomTiles(d.size, r).includes(d.stairs));
+  placeContents(out, stairsRoom, rngFrom(`${d.code}|${n}|treasure`));
+  return out;
 }
 
 /**

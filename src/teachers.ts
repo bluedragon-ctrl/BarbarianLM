@@ -7,7 +7,7 @@
  * A teacher has no randomness of its own: ties are broken in fixed orders (directions up, right, down, left; tiles
  * by index), so the same raid gives the same actions. No DOM.
  */
-import { sideNeighbours } from './dungeon';
+import { raidDungeon, sideNeighbours } from './dungeon';
 import { chaseDistances } from './monsters';
 import { rngFrom, type Rng } from './rng';
 import { lineClear, seenTiles, squareDistance } from './sight';
@@ -625,7 +625,7 @@ export class TeacherRaid {
   private readonly pickaxe: boolean;
 
   constructor(d: Dungeon, name: TeacherName, n = 0, private readonly o: TeacherRaidOptions = {}) {
-    this.state = newRaid(d);
+    this.state = newRaid(raidDungeon(d, n));
     this.teacher = newTeacher(name, this.state, o.rules);
     this.monsterRng = rngFrom(`${d.code}|${n}|monsters`);
     this.pickaxe = this.teacher.rules.dig === 'pickaxe' && (o.ownPickaxe ?? true);

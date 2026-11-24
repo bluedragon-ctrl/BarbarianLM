@@ -8,10 +8,10 @@
  *   4. `lessons + corrected` corrected raids from nothing.
  * Then each raids alone on the test codes (or the test raids of --dungeon CODE), block off.
  *
- * Options: --memory, --hidden N (hidden units, default 48), --teachers a,b, --dungeon CODE, --temperature T (test boldness), --loop '{json}', --skip 1,4.
+ * Options: --memory, --hidden N (hidden units, default 48), --seed N (another fresh model and lesson order), --teachers a,b, --dungeon CODE, --temperature T (test boldness), --loop '{json}', --skip 1,4.
  */
 import { createAdam, createModel, type Model } from '../src/model';
-import { codesFrom, manyRaids, summary, type RaidSummary } from '../src/raids';
+import { codesFrom, manyRaids, summary, testRaids, type RaidSummary } from '../src/raids';
 import { mulberry32 } from '../src/rng';
 import { type TeacherName } from '../src/teachers';
 import { MEMORY_SIZES, inputSize, type MemoryName } from '../src/tokens';
@@ -38,7 +38,7 @@ export function main(args: string[]) {
   const skip = (opt(args, '--skip')?.split(',') ?? []).map(Number);
   const dungeon = opt(args, '--dungeon');
   const codes = codesFrom('measure-training', tests);
-  const plan = dungeon ? { code: dungeon, count: tests } : { codes };
+  const plan = dungeon ? testRaids(dungeon, tests) : { codes };
   const test = (m: Model) => summary(manyRaids(m, plan, { temperature }));
   console.log(`${memory} memory, ${opt(args, '--hidden') ?? 48} hidden; ${tests} test ${dungeon ? `raids in ${dungeon}` : 'codes'} at boldness ${temperature}; ` +
     `corrected raids at boldness ${LOOP.correctedTemperature}\n`);
@@ -53,10 +53,11 @@ export function main(args: string[]) {
     for (const [k, label, parts] of runs) {
       if (skip.includes(k)) continue;
       const t0 = Date.now();
-      const m = createModel(inputSize(MEMORY_SIZES[memory]), 'measure', Number(opt(args, '--hidden') ?? 48));
+      const seed = Number(opt(args, '--seed') ?? 1);
+      const m = createModel(inputSize(MEMORY_SIZES[memory]), seed === 1 ? 'measure' : `measure${seed}`, Number(opt(args, '--hidden') ?? 48));
       const adam = createAdam(m);
       const stats = newStats();
-      parts.forEach(([count, c], i) => trainLessons(m, adam, teacher, count, stats, mulberry32(1 + i), { test: false, dungeon, corrected: c }));
+      parts.forEach(([count, c], i) => trainLessons(m, adam, teacher, count, stats, mulberry32(seed * 100 + 1 + i), { test: false, dungeon, corrected: c }));
       const loss = lessonLoss(m, teacher, dungeon ? [dungeon] : codes.slice(0, 20)).toFixed(2);
       const s = ((Date.now() - t0) / 1000).toFixed(0);
       console.log(`${teacher.padEnd(10)} ${label.padEnd(34)} ${loss}   ${line(test(m))}   ${s} s`);

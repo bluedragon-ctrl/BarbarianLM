@@ -30,8 +30,8 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | --- | --- |
 | `src/rng.ts` | Seeded random numbers, one stream per purpose (see `docs/plan.md`) |
 | `src/tiles.ts` | Tile kinds, what each shows as in his view, monster kinds and stats |
-| `src/dungeon.ts` | Seeded dungeon generator, walking distances, how many steps a dig saves |
-| `src/mapCode.ts` | Hand-made dungeons: map codes (`~2…`) and `dungeonFromCode` for any code, painting, limits and checks for the editor |
+| `src/dungeon.ts` | Seeded dungeon generator, walking distances, how many steps a dig saves, new treasure every raid (`raidDungeon`) |
+| `src/mapCode.ts` | Hand-made dungeons: map codes (`~2…`) and `dungeonFromCode` for any code (a `*` after a code: new treasure every raid), painting, limits and checks for the editor |
 | `src/world.ts` | A raid's state, `step(state, action, monsterRng)` in the design's turn order, `allowedActions`, his view |
 | `src/sight.ts` | The one sight rule for him and the monsters, his 5 × 5 view with dark cells |
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path (giving up after a few steps), wander |
