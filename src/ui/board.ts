@@ -25,7 +25,12 @@ export interface BoardOptions {
   marks?: FloorMarks | null;
   /** Event spots to draw ("Show events (for testing)"). */
   spots?: readonly EventSpot[] | null;
+  /** Draw him and his light (default on; off in the dungeon editor). */
+  hero?: boolean;
 }
+
+/** A cell pressed on the board while editing: `first` for the press, false for cells dragged over after it. */
+export type CellHandler = (i: number, first: boolean) => void;
 
 const at = (size: number, i: number): [number, number] => [(i % size) * T + T / 2, Math.floor(i / size) * T + T / 2];
 const place = (x: number, y: number) => `translate(${x}px, ${y}px)`;
@@ -44,6 +49,8 @@ export class Board {
   private readonly bubble = s('g', { class: 'layer-bubble', 'aria-hidden': 'true' });
   private readonly monsterEls = new Map<Monster, SVGGElement>();
   private size = 0;
+  private onCell: CellHandler | null = null;
+  private pressed = -1;
 
   constructor() {
     this.el = s('svg', { class: 'board', role: 'img', 'aria-label': 'The dungeon' });
@@ -60,6 +67,43 @@ export class Board {
         s('stop', { offset: '100%', 'stop-color': '#fff4dc', 'stop-opacity': 0 })));
     this.hero.append(barbarian());
     this.el.append(defs, this.tiles, this.marks, this.items, this.spots, this.monsters, this.dark, this.glow, this.hero, this.fx, this.bubble);
+    this.el.addEventListener('pointerdown', (e) => {
+      if (!this.onCell || e.button !== 0) return;
+      const i = this.cellAt(e);
+      if (i < 0) return;
+      e.preventDefault();
+      this.el.setPointerCapture?.(e.pointerId);
+      this.pressed = i;
+      this.onCell(i, true);
+    });
+    this.el.addEventListener('pointermove', (e) => {
+      if (!this.onCell || this.pressed < 0) return;
+      const i = this.cellAt(e);
+      if (i < 0 || i === this.pressed) return;
+      this.pressed = i;
+      this.onCell(i, false);
+    });
+    const release = () => { this.pressed = -1; };
+    this.el.addEventListener('pointerup', release);
+    this.el.addEventListener('pointercancel', release);
+  }
+
+  /** Cells pressed or dragged over go to `handler` (the dungeon editor); null stops it. */
+  editWith(handler: CellHandler | null): void {
+    if (handler === this.onCell) return;
+    this.onCell = handler;
+    this.pressed = -1;
+    this.el.classList.toggle('editing', !!handler);
+  }
+
+  /** The cell under the pointer, or -1. */
+  private cellAt(e: PointerEvent): number {
+    const m = this.el.getScreenCTM();
+    if (!m || !this.size) return -1;
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    const x = Math.floor(p.x / T);
+    const y = Math.floor(p.y / T);
+    return x >= 0 && y >= 0 && x < this.size && y < this.size ? y * this.size + x : -1;
   }
 
   /** Forget the monsters drawn (a new dungeon or a new raid), so none slides in from where an old one stood. */
@@ -94,8 +138,12 @@ export class Board {
     this.renderMarks(size, o.marks ?? null);
     this.renderSpots(size, o.spots ?? null);
     this.renderMonsters(size, st.monsters);
-    this.renderLight(st, o);
-    const [hx, hy] = at(size, st.pos);
+    const hero = o.hero !== false && st.pos >= 0;
+    this.hero.style.display = hero ? '' : 'none';
+    this.glow.style.display = hero ? '' : 'none';
+    if (hero) this.renderLight(st, o);
+    else { clear(this.dark); clear(this.glow); }
+    const [hx, hy] = at(size, Math.max(0, st.pos));
     this.hero.style.transform = place(hx, hy);
     this.glow.style.transform = place(hx, hy);
     this.hero.classList.toggle('out', st.ended === 'knockedOut');

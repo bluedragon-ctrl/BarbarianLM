@@ -269,3 +269,17 @@ button.primary:hover:not(:disabled) { background: #234b5d; }
 .hall-table button { padding: 0.1em 0.6em; }
 .day-mark { color: #b07a14; }
 .hall-news { font-weight: 700; color: #7a5410; }
+
+/* The dungeon editor */
+.board.editing { cursor: crosshair; touch-action: none; }
+.palette-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.palette { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.brush { display: inline-flex; align-items: center; gap: 0.3em; padding: 0.2em 0.55em 0.2em 0.3em; font-size: 0.85rem; }
+.brush.chosen { border: 2px solid var(--accent); background: #e3eef3; font-weight: 600; }
+.edit-note:empty { display: none; }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.88rem; }
+.checks li { display: flex; gap: 0.4em; padding: 0.3em 0.5em; border-radius: 6px; }
+.checks .problem { background: #fbe3e3; }
+.checks .warning { background: #f7efd9; }
+.checks .mark { font-weight: 700; }
+.panel input[type="number"] { width: 4.5em; }

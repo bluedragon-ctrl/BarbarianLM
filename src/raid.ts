@@ -6,7 +6,8 @@
  * follow (`events.ts`, from their own streams). The record of every turn is kept for practice, thoughts, the saga
  * and the UI. No DOM.
  */
-import { generateDungeon, type Dungeon } from './dungeon';
+import type { Dungeon } from './dungeon';
+import { dungeonFromCode } from './mapCode';
 import { CAST, EventTracker, placeEvents, spotsLabel, type EventKind, type EventMet, type EventSpot } from './events';
 import { decide, mask, sampleIndex, type Model } from './model';
 import { rngFrom } from './rng';
@@ -197,6 +198,6 @@ export class Raid {
 
 /** Raid `n` of a dungeon (a code or a generated dungeon), played to the end. */
 export function raid(model: Model, dungeon: Dungeon | string, n = 0, options: RaidOptions = {}): RaidRecord {
-  const d = typeof dungeon === 'string' ? generateDungeon(dungeon) : dungeon;
+  const d = typeof dungeon === 'string' ? dungeonFromCode(dungeon) : dungeon;
   return new Raid(model, d, n, options).run();
 }

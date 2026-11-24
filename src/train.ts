@@ -3,7 +3,8 @@
  * his own raids, scored by a judge, like fine-tuning with a reward). The worker and any main-thread path use these
  * same functions. Lessons and practice never block actions and never have events. No DOM.
  */
-import { generateDungeon, type Dungeon } from './dungeon';
+import type { Dungeon } from './dungeon';
+import { dungeonFromCode } from './mapCode';
 import { adamStep, clearGrads, createAdam, imitationGrad, policyGrad, sgdStep, zeroGrads, type Adam, type Model, type Grads } from './model';
 import { Raid, memoryPairs, raid, type EventOptions, type RaidRecord } from './raid';
 import { codesFrom, countRaid, manyRaids, newCounts, raidsOf, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
@@ -135,7 +136,7 @@ function nextDungeon(code: string | undefined, rng: Rng, cache: Map<string, Dung
   const c = code ?? randomCode(rng);
   let d = cache.get(c);
   if (!d) {
-    d = generateDungeon(c);
+    d = dungeonFromCode(c);
     if (code) cache.set(c, d);
   }
   return [d, code ? n : 0];
@@ -254,7 +255,7 @@ export function lessonLoss(model: Model, teacher: TeacherName, codes: readonly s
   let loss = 0;
   let n = 0;
   for (const code of codes) {
-    for (const e of lessonExamples(generateDungeon(code), teacher, 0, pairs).examples) {
+    for (const e of lessonExamples(dungeonFromCode(code), teacher, 0, pairs).examples) {
       loss += imitationGrad(model, g, e.input, e.action);
       n++;
     }

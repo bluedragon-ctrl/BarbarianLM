@@ -2,7 +2,8 @@
  * Many raids: the model raids alone many times and the counts are added up. "Left with no gold" is counted apart
  * from "left": a player that takes Leave on the first turn would otherwise look safe. No DOM.
  */
-import { generateDungeon, type Dungeon } from './dungeon';
+import type { Dungeon } from './dungeon';
+import { dungeonFromCode } from './mapCode';
 import type { Model } from './model';
 import type { StepResult } from './world';
 import { raid, type RaidOptions, type RaidRecord } from './raid';
@@ -111,10 +112,10 @@ export const codesFrom = (seed: string, count: number): string[] => {
 /** The (dungeon, raid number) pairs of a plan; a dungeon is generated once. */
 export function* raidsOf(plan: RaidPlan): Generator<[Dungeon, number]> {
   if ('code' in plan) {
-    const d = generateDungeon(plan.code);
+    const d = dungeonFromCode(plan.code);
     for (let n = 0; n < plan.count; n++) yield [d, n];
   } else {
-    for (const code of plan.codes) yield [generateDungeon(code), 0];
+    for (const code of plan.codes) yield [dungeonFromCode(code), 0];
   }
 }
 

@@ -235,3 +235,17 @@ export function cloudMark() {
     fill: '#eeece8', stroke: '#7a756e', 'stroke-width': 1.6, 'stroke-dasharray': '3 2.5',
   });
 }
+
+/** A small square SVG holding one symbol. */
+export function icon(g: SVGElement, scale = 0.6, hatch = false): SVGSVGElement {
+  const size = Math.round(T * scale);
+  const el = s('svg', { width: size, height: size, viewBox: `${-T / 2} ${-T / 2} ${T} ${T}`, class: 'icon', 'aria-hidden': 'true' });
+  if (hatch) {
+    el.append(s('defs', {}, s('pattern', { id: 'legend-hatch', width: 8, height: 8, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
+      s('rect', { width: 8, height: 8, fill: '#15120e', 'fill-opacity': 0.6 }),
+      s('line', { x1: 0, y1: 0, x2: 0, y2: 8, stroke: '#3a332a', 'stroke-width': 3 }))));
+    el.append(s('rect', { x: -T / 2, y: -T / 2, width: T, height: T, fill: COLORS.floor }));
+  }
+  el.append(g);
+  return el;
+}

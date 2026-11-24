@@ -12,7 +12,7 @@ npm run dev        # local dev server
 npm test           # vitest unit tests
 npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build to dist/
-npm run dungeon -- CODE        # print a dungeon as text
+npm run dungeon -- CODE        # print a dungeon as text (--map: also its map code)
 npm run measure:dungeons -- N  # generator numbers over N codes (default 1,000)
 npm run measure:compass -- N   # stairs-compass distances over N codes
 npm run measure:model -- N     # model speed per example at each memory size
@@ -30,6 +30,7 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/rng.ts` | Seeded random numbers, one stream per purpose (see `docs/plan.md`) |
 | `src/tiles.ts` | Tile kinds, what each shows as in his view, monster kinds and stats |
 | `src/dungeon.ts` | Seeded dungeon generator, walking distances, how many steps a dig saves |
+| `src/mapCode.ts` | Hand-made dungeons: map codes (`~1…`) and `dungeonFromCode` for any code, painting, limits and checks for the editor |
 | `src/world.ts` | A raid's state, `step(state, action, monsterRng)` in the design's turn order, `allowedActions`, his view |
 | `src/sight.ts` | The one sight rule for him and the monsters, his 5 × 5 view with dark cells |
 | `src/monsters.ts` | What monsters do each turn: hit, notice, chase by shortest path (giving up after a few steps), wander |
@@ -46,7 +47,7 @@ Run `npm test` and `npm run build` before every commit. Tool scripts in `tools/`
 | `src/storage.ts` | Saving in the browser (settings, his model packed, the hall of fame), `#dungeon=CODE` links, model files, hall of fame entries and their replay scripts, the dungeon of the day |
 | `src/worker.ts`, `src/workerClient.ts` | The Web Worker that runs `runJob`, and the page's side of it |
 | `src/marks.ts` | Floor marks for the board: pools where monsters fall, his prints after walking through one |
-| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself, watching a lesson), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `trainer.ts` (his model, its stats and the worker jobs), `training.ts` (the Lessons and Practice panels), `charts.ts` (their charts), `raidAlone.ts` (the Raid alone tab: bars, dial, play, saga), `raidPlay.ts` (its numbers and words, no DOM), `strip.ts` (the memory strip), `many.ts` (the Many raids tab), `inside.ts` (the Inside the model tab), `aiCard.ts` (the AI badges and their popover cards), `dom.ts` |
+| `src/ui/` | The page: `app.ts` (tabs, panels, settings, walking him yourself, watching a lesson), `board.ts` (the SVG board, light, effects), `symbols.ts` (the original shapes), `settings.ts` (defaults), `trainer.ts` (his model, its stats and the worker jobs), `training.ts` (the Lessons and Practice panels), `charts.ts` (their charts), `raidAlone.ts` (the Raid alone tab: bars, dial, play, saga), `raidPlay.ts` (its numbers and words, no DOM), `strip.ts` (the memory strip), `editor.ts` (the dungeon editor's panel), `many.ts` (the Many raids tab), `inside.ts` (the Inside the model tab), `aiCard.ts` (the AI badges and their popover cards), `dom.ts` |
 
 ## Starting point
 
@@ -60,7 +61,7 @@ Phase one is built in the steps of `docs/plan.md`, one pull request each: setup,
 - **Original art only:** simple symbolic SVG shapes drawn in code. No tile packs, external images or resemblance to existing games.
 - **Shape plus colour, never colour alone.** Red is reserved for danger (damage, low HP).
 - **Tone:** not horror, but not for small children either. Beaten monsters leave their coins and a faint pool (dark maroon, or teal for a slime), never gore; the barbarian is knocked out and carried out.
-- **Deterministic generation:** dungeons come only from the seeded RNG, so a dungeon code always gives the same dungeon. Changing the generator changes every existing code, so call that out in the pull request.
+- **Deterministic generation:** dungeons come only from the seeded RNG, so a dungeon code always gives the same dungeon. Turn a code into a dungeon with `dungeonFromCode`, never `generateDungeon`, so hand-made map codes work everywhere. Changing the generator changes every existing code, so call that out in the pull request.
 - **Hidden events and thoughts have their own randomness, never the raid's:** turning them off, or changing their wording, never changes which actions are sampled, how monsters move or what the dungeon holds. Thoughts change nothing. The few events with an effect change his stats on purpose: the model sees the result but never the cause.
 - **Tune with numbers:** when changing the generator, rewards or training, measure across many dungeon codes and put before/after numbers in the pull request.
 - Game logic has no DOM dependencies and is tested directly; the UI lives in `src/ui/`.

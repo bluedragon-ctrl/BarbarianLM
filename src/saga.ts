@@ -7,6 +7,7 @@
  * raid's. No DOM.
  */
 import { CAST, DATA, metText, type EventKind, type SagaLines } from './events';
+import { codeLabel } from './mapCode';
 import type { RaidRecord } from './raid';
 import type { Rng } from './rng';
 import { STRENGTH, VIGOUR, type MonsterKind } from './tiles';
@@ -202,7 +203,7 @@ export function singSaga(rec: RaidRecord, boldness: number, rng: Rng, lines: Sag
   const gold = goldOut(s);
   const end = s.ended === 'left' ? (gold > 0 ? 'left' : 'leftNoGold') : s.ended!;
   return [
-    truth(fill(pick(lines.openings), { code: rec.code }), 'opening'),
+    truth(fill(pick(lines.openings), { code: codeLabel(rec.code) }), 'opening'),
     ...body,
     truth(fill(pick(lines.endings[end]), { gold }), 'ending'),
   ];
