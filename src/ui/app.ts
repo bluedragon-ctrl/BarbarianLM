@@ -1,17 +1,22 @@
 /**
- * The app: tabs in the order the story goes, the board, and a side panel per tab. This first version has the
- * Dungeon tab (pick a code, look around, walk him yourself) and Settings; the other tabs come in later steps.
+ * The app: tabs in the order the story goes, the board, and a side panel per tab. Built so far: the Dungeon tab
+ * (pick a code, look around, walk him yourself), Lessons and Practice (`training.ts`, with the model and its jobs
+ * in `trainer.ts`) and Settings; the other tabs come in later steps.
  */
 import { generateDungeon, type Dungeon } from '../dungeon';
 import { CAST, EventTracker, placeEvents, spotsLabel } from '../events';
 import { FloorMarks } from '../marks';
 import { normalizeCode, randomCode, rngFrom, type Rng } from '../rng';
 import { MONSTER_KINDS, SHOWN, monsterGold, type MonsterKind } from '../tiles';
+import { TeacherRaid, type TeacherName, type TeacherTurn } from '../teachers';
 import { MEMORY_SIZES, type MemoryName } from '../tokens';
+import type { Judge } from '../train';
 import { DOWN, LEAVE, LEFT, LIGHT_TORCH, PICK_UP, RIGHT, RULES, UP, WAIT, DRINK, newRaid, step, torchLit, type Action, type RaidState } from '../world';
 import { Board } from './board';
 import { add, clear, h, s } from './dom';
 import { DEFAULT_SETTINGS, type Settings } from './settings';
+import { Trainer } from './trainer';
+import { lessonsPanel, practicePanel, theTeacher, watchWords, type TrainingHost } from './training';
 import {
   COLORS, T, bandage, barbarian, eventSpot, footprint, itemSymbol, lootSack, monsterBody, potion, tileSymbol, torch,
 } from './symbols';
@@ -19,9 +24,9 @@ import {
 type TabId = 'dungeon' | 'lessons' | 'raid' | 'practice' | 'many' | 'inside' | 'settings';
 const TABS: { id: TabId; label: string; soon?: string }[] = [
   { id: 'dungeon', label: '1. Dungeon' },
-  { id: 'lessons', label: '2. Lessons', soon: 'He watches a teacher raid and learns to copy each next action.' },
+  { id: 'lessons', label: '2. Lessons' },
   { id: 'raid', label: '3. Raid alone', soon: 'He raids on his own, one predicted action at a time, thinking out loud. A skald sings the saga after.' },
-  { id: 'practice', label: '4. Practice', soon: 'He raids again and again, and a judge scores each raid.' },
+  { id: 'practice', label: '4. Practice' },
   { id: 'many', label: '5. Many raids', soon: 'Hundreds of raids at once, and what they add up to.' },
   { id: 'inside', label: '6. Inside the model', soon: 'The numbers he reads and the weights that turn them into actions.' },
   { id: 'settings', label: '⚙ Settings' },
@@ -35,6 +40,17 @@ interface Walk {
   events: EventTracker | null;
   last: string;
 }
+
+/** A teacher's raid played on the board, one turn at a time (Watch a lesson). */
+interface Watch {
+  raid: TeacherRaid;
+  teacher: TeacherName;
+  marks: FloorMarks;
+  timer: number;
+}
+
+/** Milliseconds per turn when watching a lesson. */
+const WATCH_MS = 160;
 
 /** Keys for walking him yourself. */
 const KEYS: Record<string, Action> = {
@@ -52,11 +68,20 @@ const ACTION_BUTTONS: { a: Action; label: string; key: string }[] = [
 
 const MEMORY_LABELS: Record<MemoryName, string> = { short: 'Short', medium: 'Medium', long: 'Long' };
 
-export class App {
+export class App implements TrainingHost {
   tab: TabId = 'dungeon';
   settings: Settings = { ...DEFAULT_SETTINGS };
   dungeon!: Dungeon;
   walk!: Walk;
+  /** The dungeon before anyone moves: the board on Lessons and Practice when no lesson is being watched. */
+  private start!: RaidState;
+  readonly trainer = new Trainer(this.settings.memory, () => this.onTrainerChange());
+  teacher: TeacherName = 'healer';
+  lessonCount = 100;
+  judge: Judge = 'goldOut';
+  practiceCount = 1000;
+  private watch: Watch | null = null;
+  readonly watchLine = h('p', { class: 'watch-line', 'aria-live': 'polite' });
   private readonly board = new Board();
   private readonly tabsEl = h('nav', { class: 'tabs', role: 'tablist' });
   private readonly statsEl = h('div', { class: 'stats', 'aria-live': 'polite' });
@@ -77,8 +102,76 @@ export class App {
   }
 
   setCode(code: string): void {
+    this.stopWatch();
+    this.watch = null;
     this.dungeon = generateDungeon(code);
+    this.start = newRaid(this.dungeon);
     this.restartWalk();
+  }
+
+  trainCode(): string | undefined {
+    return this.settings.trainIn === 'shown' ? this.dungeon.code : undefined;
+  }
+
+  choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'judge' | 'practiceCount'>>): void {
+    Object.assign(this, patch);
+    if (patch.teacher && this.watch) this.stopWatch();
+    this.renderPanel();
+  }
+
+  private onTrainerChange(): void {
+    if (this.tab === 'lessons' || this.tab === 'practice' || this.tab === 'settings') this.renderPanel();
+  }
+
+  /** A fresh model, after asking if he has learned anything. */
+  startOver(): void {
+    if (this.trainer.trained && !confirm('Start over with a new, untrained barbarian? His lessons and practice are cleared.')) return;
+    this.trainer.fresh(this.settings.memory);
+  }
+
+  get watching(): boolean { return !!this.watch?.timer; }
+
+  /** Play the next lesson of the chosen teacher on the board (raid 0 of the code on screen with new dungeons). */
+  startWatch(): void {
+    this.stopWatch();
+    const st = this.trainer.stats;
+    const n = this.trainCode() ? st.lessons + st.practiceRaids : 0;
+    const raid = new TeacherRaid(this.dungeon, this.teacher, n);
+    this.watch = { raid, teacher: this.teacher, marks: new FloorMarks(raid.state.pos), timer: 0 };
+    this.watchLine.textContent = `Turn 0: ${theTeacher(this.teacher)} stands on the stairs.`;
+    this.watch.timer = window.setInterval(() => this.watchTick(), WATCH_MS);
+    this.board.reset();
+    this.render();
+  }
+
+  /** Stop the lesson being watched; the board stays where it stopped until another tab or lesson. */
+  stopWatch(): void {
+    if (!this.watch) return;
+    if (this.watch.timer) clearInterval(this.watch.timer);
+    this.watch.timer = 0;
+    if (this.tab === 'lessons') this.renderPanel();
+  }
+
+  private watchTick(): void {
+    const w = this.watch;
+    if (!w) return;
+    const turn: TeacherTurn | null = w.raid.next();
+    const st = w.raid.state;
+    if (!turn) {
+      clearInterval(w.timer);
+      w.timer = 0;
+      const who = theTeacher(w.teacher).replace(/^t/, 'T');
+      this.watchLine.textContent = st.ended === 'left' ? `${who} is out with ${st.gold} gold after ${st.turn} turns.`
+        : st.ended === 'knockedOut' ? `${who} is knocked out after ${st.turn} turns. The keeper carries him out.`
+          : `${who} is locked in at sundown after ${st.turn} turns.`;
+      this.renderPanel();
+      return;
+    }
+    w.marks.after(turn.result, st.pos, st.turn);
+    this.board.render(st, this.boardOptions());
+    this.board.effects(st, turn.result);
+    this.watchLine.textContent = watchWords(w.teacher, st.turn, turn);
+    this.renderStats();
   }
 
   restartWalk(): void {
@@ -122,19 +215,39 @@ export class App {
     this.act(a);
   }
 
+  /** What the board shows: your walk on the Dungeon tab, a watched lesson, or the dungeon before anyone moves. */
+  private shown(): { state: RaidState; marks: FloorMarks | null; walk: boolean } {
+    if (this.tab === 'dungeon') return { state: this.walk.state, marks: this.walk.marks, walk: true };
+    if (this.tab === 'lessons' && this.watch) return { state: this.watch.raid.state, marks: this.watch.marks, walk: false };
+    return { state: this.start, marks: null, walk: false };
+  }
+
   private boardOptions() {
     const st = this.settings;
+    const sh = this.shown();
     return {
       dim: st.dim,
       flicker: st.flicker,
-      marks: st.fightMarks ? this.walk.marks : null,
-      spots: st.events && st.showEvents ? this.walk.events?.setup.spots ?? null : null,
+      marks: st.fightMarks ? sh.marks : null,
+      // Lessons and practice never have events.
+      spots: sh.walk && st.events && st.showEvents ? this.walk.events?.setup.spots ?? null : null,
     };
+  }
+
+  private setTab(id: TabId): void {
+    if (id === this.tab) return;
+    if (this.tab === 'lessons') {
+      this.stopWatch();
+      this.watch = null;
+    }
+    this.tab = id;
+    this.board.reset();
+    this.render();
   }
 
   render(): void {
     this.renderTabs();
-    this.board.render(this.walk.state, this.boardOptions());
+    this.board.render(this.shown().state, this.boardOptions());
     this.renderStats();
     this.renderPanel();
   }
@@ -144,13 +257,13 @@ export class App {
     for (const t of TABS) {
       this.tabsEl.append(h('button', {
         role: 'tab', class: `tab ${this.tab === t.id ? 'active' : ''}`, 'aria-selected': String(this.tab === t.id),
-        onclick: () => { this.tab = t.id; this.render(); },
+        onclick: () => this.setTab(t.id),
       }, t.label));
     }
   }
 
   private renderStats(): void {
-    const st = this.walk.state;
+    const st = this.shown().state;
     const low = st.hp <= 4;
     const lit = torchLit(st);
     clear(this.statsEl);
@@ -167,6 +280,8 @@ export class App {
     clear(this.panelEl);
     const t = TABS.find((x) => x.id === this.tab)!;
     if (this.tab === 'dungeon') this.dungeonPanel();
+    else if (this.tab === 'lessons') add(this.panelEl, ...lessonsPanel(this));
+    else if (this.tab === 'practice') add(this.panelEl, ...practicePanel(this));
     else if (this.tab === 'settings') this.settingsPanel();
     else this.panelEl.append(h('h2', {}, t.label.replace(/^\d+\. /, '')), h('p', {}, t.soon ?? ''), h('p', { class: 'muted' }, 'Coming soon.'));
   }
@@ -250,7 +365,19 @@ export class App {
 
   private settingsPanel(): void {
     const st = this.settings;
+    const busy = this.trainer.busy;
     const set = <K extends keyof Settings>(k: K, v: Settings[K], restart = false) => {
+      // The memory fixes the model's size: another memory needs a fresh model.
+      if (k === 'memory' && v !== this.trainer.memory) {
+        if (this.trainer.trained && !confirm('Another memory needs a new, untrained barbarian: his lessons and practice are cleared. Go on?')) {
+          this.renderPanel();
+          return;
+        }
+        this.settings = { ...this.settings, memory: v as MemoryName };
+        this.trainer.fresh(v as MemoryName);
+        this.render();
+        return;
+      }
       this.settings = { ...this.settings, [k]: v };
       if (restart) this.restartWalk();
       else this.render();
@@ -262,17 +389,18 @@ export class App {
     const radio = <K extends 'memory' | 'trainIn'>(k: K, options: [Settings[K], string][]) =>
       h('div', { class: 'row', role: 'radiogroup' }, ...options.map(([v, label]) =>
         h('label', { class: 'radio' },
-          h('input', { type: 'radio', name: k, checked: st[k] === v, onchange: () => set(k, v) }),
+          h('input', { type: 'radio', name: k, checked: st[k] === v, disabled: busy, onchange: () => set(k, v) }),
           label)));
     add(this.panelEl,
       h('h2', {}, 'Settings'),
       h('div', { class: 'group' },
         h('h3', {}, 'His memory'),
         radio('memory', (Object.keys(MEMORY_SIZES) as MemoryName[]).map((m) => [m, `${MEMORY_LABELS[m]} (${MEMORY_SIZES[m]})`])),
-        h('p', { class: 'muted' }, 'How many past views and actions he remembers. Set it before lessons: it fixes the size of his model.')),
+        h('p', { class: 'muted' }, 'How many past views and actions he remembers. Set it before lessons: it fixes the size of his model, so changing it later starts him afresh.')),
       h('div', { class: 'group' },
         h('h3', {}, 'Lessons and practice'),
-        radio('trainIn', [['shown', 'In the dungeon on screen'], ['new', 'A new dungeon every raid']])),
+        radio('trainIn', [['shown', 'In the dungeon on screen'], ['new', 'A new dungeon every raid']]),
+        busy ? h('p', { class: 'muted' }, 'These wait until his lessons or practice are done.') : null),
       h('div', { class: 'group' },
         h('h3', {}, 'Hidden events'),
         check('events', 'Events in the dungeon', 'He never sees them coming.', true),

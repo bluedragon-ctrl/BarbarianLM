@@ -3,7 +3,7 @@ import { generateDungeon } from '../src/dungeon';
 import { randomCode, rngFrom } from '../src/rng';
 import { seenTiles } from '../src/sight';
 import {
-  TEACHERS, fightDamage, firstStep, newKnowledge, newTeacher, observe, plan, teacherRaid, wayBack,
+  TEACHERS, TeacherRaid, fightDamage, firstStep, newKnowledge, newTeacher, observe, plan, teacherRaid, wayBack,
   type Knowledge, type PlanOptions, type Teacher, type TeacherName,
 } from '../src/teachers';
 import { DOWN, DRINK, LEAVE, LEFT, RIGHT, RULES, UP, WAIT, bumpTarget, torchLit, type RaidState } from '../src/world';
@@ -241,6 +241,12 @@ describe('teacher raids', () => {
     for (const name of TEACHERS) {
       const d = generateDungeon('TEACHER');
       const run = () => teacherRaid(d, name, 3).turns.map((t) => t.action);
+      // One turn at a time (watching a lesson) gives the same raid.
+      const stepper = new TeacherRaid(d, name, 3);
+      const actions = [];
+      for (let t = stepper.next(); t; t = stepper.next()) actions.push(t.action);
+      expect(actions).toEqual(run());
+      expect(stepper.next()).toBeNull();
       expect(run(), name).toEqual(run());
     }
   });

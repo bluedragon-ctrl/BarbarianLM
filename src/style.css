@@ -129,3 +129,25 @@ kbd { font: 0.72rem ui-monospace, monospace; margin-left: 0.4em; padding: 0 0.3e
   .actor, .glow.flicker, .fx-coin, .fx-smoke, .fx-pop { transition: none; animation: none; }
   .fx-coin { opacity: 0; }
 }
+
+/* Lessons and Practice. */
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #234b5d; }
+.pick-list { display: flex; flex-direction: column; gap: 0.2rem; }
+.pick { display: flex; gap: 0.5em; align-items: baseline; padding: 0.3em 0.45em; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+.pick.chosen { background: #f3efe3; border-color: var(--line); }
+.pick-body { display: flex; flex-direction: column; gap: 0.1em; flex: 1; }
+.pick-head { display: flex; justify-content: space-between; gap: 0.6em; flex-wrap: wrap; }
+.pick-num { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.job progress { width: 9rem; height: 0.9rem; accent-color: var(--accent); }
+.job p { margin: 0.3em 0 0; }
+.compare { font-size: 0.92rem; font-weight: 600; }
+.summary p { margin: 0.2em 0; }
+.summary.alarm { background: #fbe3e3; border-radius: 8px; padding: 0.5em 0.7em; border-top: none; }
+.watch-line { min-height: 1.45em; font-size: 0.92rem; }
+.chart { margin: 0.2rem 0 0.4rem; }
+.chart-svg { display: block; font-family: inherit; }
+.chart-svg text { font-variant-numeric: tabular-nums; }
+.chart-svg .hit:hover { fill: #26232110; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 0.2rem 0.8rem; font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+.legend-item { display: inline-flex; align-items: center; gap: 0.3em; }

@@ -6,7 +6,7 @@
 import { generateDungeon, type Dungeon } from './dungeon';
 import { adamStep, clearGrads, createAdam, imitationGrad, policyGrad, sgdStep, zeroGrads, type Adam, type Model, type Grads } from './model';
 import { Raid, memoryPairs, type RaidRecord } from './raid';
-import { codesFrom, countRaid, manyRaids, newCounts, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
+import { codesFrom, countRaid, manyRaids, newCounts, raidsOf, summary, type RaidCounts, type RaidPlan, type RaidSummary } from './raids';
 import { mulberry32, randomCode, shuffle, type Rng } from './rng';
 import { MONSTER_STATS, type MonsterKind } from './tiles';
 import { TEACHERS, teacherRaid, type TeacherName } from './teachers';
@@ -93,8 +93,13 @@ export function updateBaseline(baseline: number[], toGo: readonly number[]): num
 // ── Stats ───────────────────────────────────────────────────────────────────
 
 export interface Point { x: number; y: number }
-/** A round of test raids: x is the raids trained on so far (lessons and practice). */
-export interface EvalPoint extends RaidSummary { x: number }
+/**
+ * A round of test raids: x is the raids trained on so far (lessons and practice), `where` the dungeon code the test
+ * raids were in (or `new` for the 20 fixed codes), `phase` the kind of job that ran them.
+ */
+export interface EvalPoint extends RaidSummary { x: number; where: string; phase: 'lessons' | 'practice' }
+/** The judge's mean score over a chunk of practice; x is the practice raids so far. */
+export interface ScorePoint extends Point { judge: Judge }
 
 /** Everything training keeps for the charts; a plain object, so it passes to and from the worker. */
 export interface TrainStats {
@@ -109,7 +114,7 @@ export interface TrainStats {
   /** Mean imitation loss per chunk of lessons. */
   lessonLoss: Point[];
   /** Mean judge score per chunk of practice. */
-  practiceScore: Point[];
+  practiceScore: ScorePoint[];
   evals: EvalPoint[];
 }
 
@@ -140,8 +145,28 @@ function nextDungeon(code: string | undefined, rng: Rng, cache: Map<string, Dung
 export const evalPlan = (code?: string): RaidPlan =>
   code ? { code, count: LOOP.evalRaids } : { codes: codesFrom('eval', LOOP.evalRaids) };
 
-export function evaluate(model: Model, x: number, code?: string): EvalPoint {
-  return { x, ...summary(manyRaids(model, evalPlan(code), { temperature: LOOP.evalTemperature })) };
+/** Where test raids happen, as `EvalPoint.where` names it. */
+export const testsIn = (code?: string): string => code ?? 'new';
+
+export function evaluate(model: Model, x: number, code?: string, phase: EvalPoint['phase'] = 'lessons'): EvalPoint {
+  return { x, where: testsIn(code), phase, ...summary(manyRaids(model, evalPlan(code), { temperature: LOOP.evalTemperature })) };
+}
+
+/**
+ * A teacher's numbers on the same test raids as his (`evalPlan`), to show next to his: the teacher plays each raid
+ * as in its lessons (the pickaxe dwarf with his own pickaxe). Teachers have no randomness, so this is fixed for a
+ * teacher and a dungeon code.
+ */
+export function teacherTests(teacher: TeacherName, code?: string): RaidSummary {
+  const c = newCounts();
+  for (const [d, n] of raidsOf(evalPlan(code))) countRaid(c, teacherRaid(d, teacher, n));
+  return summary(c);
+}
+
+/** Test before a job starts, unless there already is a test at this point in this place (the chart's first bar). */
+export function testFirst(model: Model, stats: TrainStats, code: string | undefined, phase: EvalPoint['phase']): void {
+  const x = raidsSoFar(stats);
+  if (!stats.evals.some((e) => e.x === x && e.where === testsIn(code))) stats.evals.push(evaluate(model, x, code, phase));
 }
 
 /** Test after this raid of a job? About `evalPoints` times a job, always after the last. */
@@ -216,7 +241,7 @@ export function trainLessons(
       if (i === count - 1) flushLessons(model, ls);
       stats.lessonLoss.push({ x: stats.lessons, y: lossSum / Math.max(1, lossN) });
       lossSum = lossN = 0;
-      if (o.test !== false && testAfter(i, count)) stats.evals.push(evaluate(model, raidsSoFar(stats), o.dungeon));
+      if (o.test !== false && testAfter(i, count)) stats.evals.push(evaluate(model, raidsSoFar(stats), o.dungeon, 'lessons'));
       o.onChunk?.({ done: i + 1 });
     }
   }
@@ -293,9 +318,9 @@ export function trainPractice(
     if (i === count - 1) flushPractice(model, ps);
     scoreN++;
     if ((i + 1) % LOOP.chunk === 0 || i === count - 1) {
-      stats.practiceScore.push({ x: stats.practiceRaids, y: scoreSum / scoreN });
+      stats.practiceScore.push({ x: stats.practiceRaids, y: scoreSum / scoreN, judge });
       scoreSum = scoreN = 0;
-      if (o.test !== false && testAfter(i, count)) stats.evals.push(evaluate(model, raidsSoFar(stats), o.dungeon));
+      if (o.test !== false && testAfter(i, count)) stats.evals.push(evaluate(model, raidsSoFar(stats), o.dungeon, 'practice'));
       o.onChunk?.({ done: i + 1 });
     }
   }
@@ -308,17 +333,23 @@ interface JobCommon { model: Model; stats: TrainStats; count: number; seed: numb
 export type WorkerRequest =
   | (JobCommon & { kind: 'lessons'; teacher: TeacherName; adam?: Adam })
   | (JobCommon & { kind: 'practice'; judge: Judge })
-  | { kind: 'raids'; model: Model; plan: RaidPlan; temperature: number; block: boolean; events?: boolean };
+  | { kind: 'raids'; model: Model; plan: RaidPlan; temperature: number; block: boolean; events?: boolean }
+  /** The teachers' numbers on the test raids (in `dungeon`, or the fixed codes). */
+  | { kind: 'teachers'; teachers: readonly TeacherName[]; dungeon?: string };
+
+export type TeacherTests = Partial<Record<TeacherName, RaidSummary>>;
 
 export type WorkerResponse =
-  | { type: 'progress'; done: number; total: number; stats?: TrainStats; counts?: RaidCounts }
+  | { type: 'progress'; done: number; total: number; stats?: TrainStats; counts?: RaidCounts; teachers?: TeacherTests }
   | { type: 'done'; model: Model; stats: TrainStats; adam?: Adam }
   | { type: 'raidsDone'; counts: RaidCounts }
+  | { type: 'teachersDone'; teachers: TeacherTests }
   | { type: 'error'; message: string };
 
 /**
- * Run one job and post its messages: progress after every chunk, then `done` (or `raidsDone`), or `error`. The
- * worker is this function on `self.onmessage`; tests call it directly.
+ * Run one job and post its messages: progress after every chunk (after every teacher for `teachers`), then `done`
+ * (or `raidsDone`, `teachersDone`), or `error`. A training job tests first if there is no test at its starting point
+ * yet, so its chart starts from where he was. The worker is this function on `self.onmessage`; tests call it directly.
  */
 export function runJob(req: WorkerRequest, post: (msg: WorkerResponse) => void): void {
   try {
@@ -330,11 +361,22 @@ export function runJob(req: WorkerRequest, post: (msg: WorkerResponse) => void):
       post({ type: 'raidsDone', counts });
       return;
     }
+    if (req.kind === 'teachers') {
+      const out: TeacherTests = {};
+      req.teachers.forEach((name, k) => {
+        if (!TEACHERS.includes(name)) throw new Error(`No teacher called ${name}`);
+        out[name] = teacherTests(name, req.dungeon);
+        if (k < req.teachers.length - 1) post({ type: 'progress', done: k + 1, total: req.teachers.length, teachers: { ...out } });
+      });
+      post({ type: 'teachersDone', teachers: out });
+      return;
+    }
     if (req.kind === 'lessons' && !TEACHERS.includes(req.teacher)) throw new Error(`No teacher called ${req.teacher}`);
     if (req.kind === 'practice' && !JUDGES.includes(req.judge)) throw new Error(`No judge called ${req.judge}`);
     const { model, stats, count, dungeon } = req;
     const rng = mulberry32(req.seed);
     const onChunk = (info: ChunkInfo) => post({ type: 'progress', done: info.done, total: count, stats });
+    testFirst(model, stats, dungeon, req.kind);
     if (req.kind === 'lessons') {
       const adam = req.adam ?? createAdam(model);
       trainLessons(model, adam, req.teacher, count, stats, rng, { dungeon, onChunk });

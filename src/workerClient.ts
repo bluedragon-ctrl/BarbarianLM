@@ -1,9 +1,12 @@
 /** The page's side of the worker: start one job, hear its progress, cancel it. */
 import type { Adam, Model } from './model';
 import type { RaidCounts } from './raids';
-import type { TrainStats, WorkerRequest, WorkerResponse } from './train';
+import type { TeacherTests, TrainStats, WorkerRequest, WorkerResponse } from './train';
 
-export type JobResult = { model: Model; stats: TrainStats; adam?: Adam } | { counts: RaidCounts };
+export type JobResult =
+  | { model: Model; stats: TrainStats; adam?: Adam }
+  | { counts: RaidCounts }
+  | { teachers: TeacherTests };
 
 /** Run one job in a Web Worker; `cancel` stops it and keeps nothing. */
 export function runInWorker(
@@ -20,6 +23,7 @@ export function runInWorker(
       worker.terminate();
       if (msg.type === 'done') res({ model: msg.model, stats: msg.stats, adam: msg.adam });
       else if (msg.type === 'raidsDone') res({ counts: msg.counts });
+      else if (msg.type === 'teachersDone') res({ teachers: msg.teachers });
       else rej(new Error(msg.message));
     };
     worker.onerror = (e) => { worker.terminate(); rej(new Error(e.message || 'Training failed')); };

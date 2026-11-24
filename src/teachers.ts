@@ -9,7 +9,7 @@
  */
 import { sideNeighbours } from './dungeon';
 import { chaseDistances } from './monsters';
-import { rngFrom } from './rng';
+import { rngFrom, type Rng } from './rng';
 import { lineClear, seenTiles, squareDistance } from './sight';
 import {
   BEDROCK, CRACKED_HP, FLOOR, GOLD, MONSTER_STATS, POTION, STAIRS, STRENGTH, TORCH, TRAP, VIGOUR, WALL, isOpen,
@@ -573,31 +573,50 @@ function unseenAround(k: Knowledge, i: number, sidesOnly: boolean): boolean {
 
 export interface TeacherTurn { action: Action; reason: Reason; result: StepResult }
 
+/** Options for a teacher's raid. */
+export interface TeacherRaidOptions {
+  ownPickaxe?: boolean; rules?: TeacherRules;
+  /** Called with the teacher's action before `step` takes it, so lessons can encode what he saw. */
+  beforeStep?: (s: RaidState, action: Action) => void;
+  onTurn?: (s: RaidState, t: Teacher, turn: TeacherTurn) => void;
+}
+
 /**
- * A whole raid played by a teacher, raid number `n` (the monster stream is `code|n|monsters`, as for him). The
- * pickaxe dwarf plays with his own pickaxe (every wall falls in one blow) unless `ownPickaxe` is false: then he
- * plans as if it did, but digs at the barbarian's real attack, which is what copying him does.
+ * A teacher's raid one turn at a time (for watching a lesson on the board); `teacherRaid` plays it to the end.
+ * Raid number `n`: the monster stream is `code|n|monsters`, as for him. The pickaxe dwarf plays with his own
+ * pickaxe (every wall falls in one blow) unless `ownPickaxe` is false: then he plans as if it did, but digs at the
+ * barbarian's real attack, which is what copying him does.
  */
-export function teacherRaid(
-  d: Dungeon, name: TeacherName, n = 0,
-  o: {
-    ownPickaxe?: boolean; rules?: TeacherRules;
-    /** Called with the teacher's action before `step` takes it, so lessons can encode what he saw. */
-    beforeStep?: (s: RaidState, action: Action) => void;
-    onTurn?: (s: RaidState, t: Teacher, turn: TeacherTurn) => void;
-  } = {},
-): { state: RaidState; turns: TeacherTurn[] } {
-  const s = newRaid(d);
-  const t = newTeacher(name, s, o.rules);
-  const monsterRng = rngFrom(`${d.code}|${n}|monsters`);
-  const pickaxe = t.rules.dig === 'pickaxe' && (o.ownPickaxe ?? true);
-  const turns: TeacherTurn[] = [];
-  while (!s.ended) {
-    const action = t.act(s);
-    o.beforeStep?.(s, action);
-    const turn = { action, reason: t.reason, result: step(s, action, monsterRng, { pickaxe }) };
-    turns.push(turn);
-    o.onTurn?.(s, t, turn);
+export class TeacherRaid {
+  readonly state: RaidState;
+  readonly teacher: Teacher;
+  readonly turns: TeacherTurn[] = [];
+  private readonly monsterRng: Rng;
+  private readonly pickaxe: boolean;
+
+  constructor(d: Dungeon, name: TeacherName, n = 0, private readonly o: TeacherRaidOptions = {}) {
+    this.state = newRaid(d);
+    this.teacher = newTeacher(name, this.state, o.rules);
+    this.monsterRng = rngFrom(`${d.code}|${n}|monsters`);
+    this.pickaxe = this.teacher.rules.dig === 'pickaxe' && (o.ownPickaxe ?? true);
   }
-  return { state: s, turns };
+
+  /** The next turn, or null once the raid is over. */
+  next(): TeacherTurn | null {
+    const s = this.state;
+    if (s.ended) return null;
+    const action = this.teacher.act(s);
+    this.o.beforeStep?.(s, action);
+    const turn = { action, reason: this.teacher.reason, result: step(s, action, this.monsterRng, { pickaxe: this.pickaxe }) };
+    this.turns.push(turn);
+    this.o.onTurn?.(s, this.teacher, turn);
+    return turn;
+  }
+}
+
+/** A whole raid played by a teacher (see `TeacherRaid`). */
+export function teacherRaid(d: Dungeon, name: TeacherName, n = 0, o: TeacherRaidOptions = {}): { state: RaidState; turns: TeacherTurn[] } {
+  const r = new TeacherRaid(d, name, n, o);
+  while (r.next());
+  return { state: r.state, turns: r.turns };
 }
