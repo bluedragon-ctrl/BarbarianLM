@@ -11,6 +11,8 @@ import { runInWorker } from '../workerClient';
 
 export interface Job {
   kind: 'lessons' | 'practice';
+  /** Lessons as corrected raids. */
+  corrected: boolean;
   done: number;
   total: number;
   /** The stats as the job's last progress message had them. */
@@ -81,8 +83,9 @@ export class Trainer {
     return best;
   }
 
-  lessons(teacher: TeacherName, count: number, dungeon?: string): void {
-    this.start({ kind: 'lessons', model: this.model, stats: this.stats, count, seed: seed(), teacher, adam: this.adam, dungeon });
+  /** Lessons, or with `corrected` corrected raids (he plays, the teacher says what it would do there). */
+  lessons(teacher: TeacherName, count: number, dungeon?: string, corrected = false): void {
+    this.start({ kind: 'lessons', model: this.model, stats: this.stats, count, seed: seed(), teacher, adam: this.adam, dungeon, corrected });
   }
 
   practice(judge: Judge, count: number, dungeon?: string): void {
@@ -111,7 +114,7 @@ export class Trainer {
       this.job.stats = p.stats;
       this.changed();
     });
-    const job: Job = { kind: req.kind, done: 0, total: req.count, stats: this.stats, cancel: run.cancel };
+    const job: Job = { kind: req.kind, corrected: req.kind === 'lessons' && !!req.corrected, done: 0, total: req.count, stats: this.stats, cancel: run.cancel };
     this.job = job;
     run.result.then((r) => {
       if (this.job !== job || !('model' in r)) return;

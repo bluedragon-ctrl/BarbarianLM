@@ -4,8 +4,8 @@
  */
 
 export const CARD_KEYS = [
-  'tokens', 'probabilities', 'pinned', 'buckets', 'agentLoop', 'leave', 'tools', 'torch', 'lessons', 'pickaxe',
-  'practice', 'saga',
+  'tokens', 'probabilities', 'pinned', 'buckets', 'agentLoop', 'leave', 'tools', 'torch', 'lessons', 'corrected',
+  'pickaxe', 'practice', 'saga',
 ] as const;
 export type CardKey = typeof CARD_KEYS[number];
 
@@ -47,6 +47,10 @@ export const CARDS: Record<CardKey, Card> = {
   lessons: {
     title: 'Lessons from a teacher',
     text: 'In a lesson he guesses each next action of a teacher\'s raid, sees the real one, and his numbers shift a little toward it. He copies the teacher\'s habits, good and bad, from far fewer raids than the teacher has lived. A chatbot is first trained the same way on huge amounts of text, guessing every next word, and whoever picks that text shapes what it becomes.',
+  },
+  corrected: {
+    title: 'Corrected raids',
+    text: 'A teacher\'s raid never goes where his mistakes take him, so after one wrong turn he is somewhere no lesson showed. In a corrected raid he plays and the teacher says at every turn what it would do there; here that mostly makes him worse, because the teacher steers by a map it remembers and he cannot see, so he learns to guess. Chatbots are also trained on their own answers with corrections, to fix this "exposure bias", and it helps only when the corrections use what the model can see.',
   },
   pickaxe: {
     title: 'The dwarf\'s pickaxe',

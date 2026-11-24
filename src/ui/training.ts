@@ -60,11 +60,13 @@ export interface TrainingHost {
   dungeon: Dungeon;
   teacher: TeacherName;
   lessonCount: number;
+  /** Lessons as corrected raids: he plays, the teacher says what it would do. */
+  corrected: boolean;
   judge: Judge;
   practiceCount: number;
   /** The dungeon training happens in: the code on screen, or none (a new dungeon every raid). */
   trainCode(): string | undefined;
-  choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'judge' | 'practiceCount'>>): void;
+  choose(patch: Partial<Pick<TrainingHost, 'teacher' | 'lessonCount' | 'corrected' | 'judge' | 'practiceCount'>>): void;
   watching: boolean;
   watchLine: HTMLElement;
   startWatch(): void;
@@ -98,7 +100,7 @@ function counts(name: string, options: readonly number[], value: number, disable
 function jobBox(host: TrainingHost, kind: 'lessons' | 'practice', run: HTMLButtonElement): HTMLElement {
   const job = host.trainer.job;
   if (!job) return h('div', { class: 'row' }, run);
-  const what = job.kind === 'lessons' ? 'Lessons' : 'Practice raids';
+  const what = job.kind === 'practice' ? 'Practice raids' : job.corrected ? 'Corrected raids' : 'Lessons';
   return h('div', { class: 'job' },
     h('div', { class: 'row' },
       h('progress', { max: job.total, value: job.done, 'aria-label': what }),
@@ -135,11 +137,16 @@ export function lessonsPanel(host: TrainingHost): (HTMLElement | null)[] {
   const st = tr.shown;
   const busy = tr.busy;
   const tests = tr.teachers(host.trainCode());
-  const run = h('button', { class: 'primary', onclick: () => tr.lessons(host.teacher, host.lessonCount, host.trainCode()) },
-    `Give ${plural(host.lessonCount, 'lesson')}`);
+  const run = h('button', { class: 'primary', onclick: () => tr.lessons(host.teacher, host.lessonCount, host.trainCode(), host.corrected) },
+    host.corrected ? `Correct ${plural(host.lessonCount, 'raid')}` : `Give ${plural(host.lessonCount, 'lesson')}`);
   const sofar = st.lessons
-    ? `So far: ${plural(st.lessons, 'lesson')} (${TEACHERS.filter((t) => st.teacherCounts[t]).map((t) => `${TEACHER_LABELS[t].toLowerCase()} ${st.teacherCounts[t]!.toLocaleString('en')}`).join(', ')})`
+    ? `So far: ${plural(st.lessons, 'lesson')} (${TEACHERS.filter((t) => st.teacherCounts[t]).map((t) => `${TEACHER_LABELS[t].toLowerCase()} ${st.teacherCounts[t]!.toLocaleString('en')}`).join(', ')})` +
+      (st.corrected ? `, ${st.corrected.toLocaleString('en')} of them corrected raids` : '')
     : 'So far: no lessons yet.';
+  const kind = (corrected: boolean, label: string, line: string, card?: Node) =>
+    h('label', { class: `pick ${host.corrected === corrected ? 'chosen' : ''}` },
+      h('input', { type: 'radio', name: 'lessonKind', checked: host.corrected === corrected, disabled: busy, onchange: () => host.choose({ corrected }) }),
+      h('span', { class: 'pick-body' }, h('span', {}, h('strong', {}, label), card ? ' ' : null, card ?? null), h('small', { class: 'muted' }, line)));
   return [
     h('h2', {}, 'Lessons'),
     h('p', { class: 'caption' }, 'A teacher raids the dungeon. At every turn he guesses the teacher\'s next action, sees the real one and learns a little.'),
@@ -156,6 +163,11 @@ export function lessonsPanel(host: TrainingHost): (HTMLElement | null)[] {
       h('p', { class: 'muted' }, `The teachers' numbers are their own raids on his test raids (${testsWhere(host)}).`)),
     h('div', { class: 'group' },
       h('h3', {}, 'Give him lessons'),
+      h('div', { class: 'pick-list', role: 'radiogroup', 'aria-label': 'Kind of lesson' },
+        kind(false, 'The teacher raids', 'He follows the teacher\'s raid and guesses each next action.'),
+        kind(true, 'He raids, the teacher corrects', 'He raids himself (the teacher takes over half the turns). At every turn the teacher says what it would do there, and he learns that. A plain lesson comes between raids.', host.card('corrected', 'lessons'))),
+      host.corrected ? h('p', { class: 'muted' }, 'An experiment: the teacher steers by a map it remembers and he cannot see, so this often makes him worse. Watch the chart.') : null,
+      st.lessons || !host.corrected ? null : h('p', { class: 'muted' }, 'With no lessons yet he wanders at random, so the teacher mostly corrects him near the stairs. A few plain lessons first help.'),
       counts('lessonCount', LESSON_COUNTS, host.lessonCount, busy, (n) => host.choose({ lessonCount: n })),
       jobBox(host, 'lessons', run),
       h('p', { class: 'muted' }, sofar),
